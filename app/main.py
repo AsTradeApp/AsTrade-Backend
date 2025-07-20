@@ -14,7 +14,8 @@ import structlog
 from app.config.settings import settings
 from app.models.responses import SuccessResponse, ErrorResponse, ErrorDetail, HealthResponse
 from app.services.extended_client import extended_client
-from app.api.v1 import markets, accounts, orders
+from app.services.database import create_tables
+from app.api.v1 import markets, accounts, orders, users
 
 # Configure structured logging
 structlog.configure(
@@ -46,6 +47,10 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
     logger.info("Starting AsTrade Backend", version=settings.app_version, environment=settings.extended_environment)
+    
+    # Initialize database tables
+    create_tables()
+    logger.info("Database tables initialized")
     
     # Initialize Extended Exchange client
     await extended_client.connect()
@@ -228,6 +233,12 @@ app.include_router(
     orders.router,
     prefix="/api/v1",
     tags=["Orders"]
+)
+
+app.include_router(
+    users.router,
+    prefix="/api/v1",
+    tags=["Users"]
 )
 
 
