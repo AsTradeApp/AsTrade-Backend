@@ -19,11 +19,21 @@ SET timezone = 'UTC';
 -- Create users table (for future multi-user support)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    api_key VARCHAR(255) UNIQUE,
-    stark_private_key TEXT,
-    extended_account_id VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    username VARCHAR(255),
     is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create user_api_credentials table for StarkEx keys
+CREATE TABLE IF NOT EXISTS user_api_credentials (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    extended_api_key VARCHAR(255),
+    extended_secret_key VARCHAR(255),
+    extended_stark_private_key TEXT NOT NULL,
+    environment VARCHAR(10) DEFAULT 'testnet',
+    is_mock_enabled BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
