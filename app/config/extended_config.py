@@ -5,12 +5,22 @@ from app.config.settings import settings
 class ExtendedExchangeConfig:
     """Configuration for Extended Exchange API integration"""
     
-    # API Endpoints
+    # API Endpoints - URLs oficiales de Extended Exchange
     TESTNET_BASE_URL = "https://api.testnet.extended.exchange/api/v1"
     MAINNET_BASE_URL = "https://api.extended.exchange/api/v1"
     
+    # WebSocket URLs
     TESTNET_WS_URL = "wss://api.testnet.extended.exchange/stream.extended.exchange/v1"
     MAINNET_WS_URL = "wss://api.extended.exchange/stream.extended.exchange/v1"
+    
+    # Onboarding URLs para creación de cuentas
+    TESTNET_ONBOARDING_URL = "https://api.testnet.extended.exchange"
+    MAINNET_ONBOARDING_URL = "https://api.extended.exchange"
+    
+    # Signing domains para firmas Stark
+    TESTNET_SIGNING_DOMAIN = "testnet.x10.exchange"  # Legacy domain
+    TESTNET_SIGNING_DOMAIN_NEW = "testnet.extended.exchange"
+    MAINNET_SIGNING_DOMAIN = "extended.exchange"
     
     @property
     def base_url(self) -> str:
@@ -27,11 +37,26 @@ class ExtendedExchangeConfig:
         return self.TESTNET_WS_URL
     
     @property
+    def onboarding_url(self) -> str:
+        """Get the appropriate onboarding URL for account creation"""
+        if settings.extended_environment == "mainnet":
+            return self.MAINNET_ONBOARDING_URL
+        return self.TESTNET_ONBOARDING_URL
+    
+    @property
+    def signing_domain(self) -> str:
+        """Get the signing domain for Stark signatures"""
+        if settings.extended_environment == "mainnet":
+            return self.MAINNET_SIGNING_DOMAIN
+        return self.TESTNET_SIGNING_DOMAIN_NEW
+    
+    @property
     def headers(self) -> Dict[str, str]:
         """Get the default headers for API requests"""
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "User-Agent": "AsTrade/1.0"  # Mandatory header según la documentación
         }
         
         if settings.extended_api_key:
@@ -39,7 +64,7 @@ class ExtendedExchangeConfig:
             
         return headers
     
-    # Rate Limits
+    # Rate Limits según documentación
     STANDARD_RATE_LIMIT = {
         "requests": 1000,
         "period": 60  # seconds
@@ -61,19 +86,19 @@ class ExtendedExchangeConfig:
         "positions": "positions"
     }
     
-    # Order Types
+    # Order Types permitidos
     ORDER_TYPES = ["limit", "market", "stop_limit", "stop_market", "twap"]
     
     # Order Sides
     ORDER_SIDES = ["buy", "sell"]
     
     # Time in Force
-    TIME_IN_FORCE = ["gtc", "ioc", "fok"]
+    TIME_IN_FORCE = ["gtc", "ioc", "fok", "gtt"]
     
     # Position Modes
     POSITION_MODES = ["one_way", "hedge"]
     
-    # Available Markets (will be fetched dynamically)
+    # Available Markets (se actualizará dinámicamente)
     DEFAULT_MARKETS = [
         "BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD", "WIF-USD",
         "PEPE-USD", "ARB-USD", "OP-USD", "AVAX-USD", "LINK-USD"
@@ -87,7 +112,7 @@ class ExtendedExchangeConfig:
         "default": 10
     }
     
-    # Minimum Order Sizes (in USD)
+    # Minimum Order Sizes (en USD)
     MIN_ORDER_SIZE = {
         "BTC-USD": 5.0,
         "ETH-USD": 5.0,

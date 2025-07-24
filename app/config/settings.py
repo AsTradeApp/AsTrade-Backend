@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     
     # CORS
     cors_origins: Union[str, List[str]] = Field(
-        default="http://localhost:3000,http://localhost:8080", 
+        default="http://localhost:3000,http://localhost:8080,http://localhost:8081,http://localhost:19006,http://localhost:19000,exp://localhost:19000,http://localhost",
         env="CORS_ORIGINS"
     )
     

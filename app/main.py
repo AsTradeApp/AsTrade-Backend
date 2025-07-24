@@ -15,7 +15,12 @@ from app.config.settings import settings
 from app.models.responses import SuccessResponse, ErrorResponse, ErrorDetail, HealthResponse
 from app.services.extended_client import extended_client
 from app.services.database import create_tables
-from app.api.v1 import markets, accounts, orders, users
+from app.api.v1 import (
+    markets,
+    accounts,
+    orders,
+    users
+)
 
 # Configure structured logging
 structlog.configure(
@@ -76,9 +81,19 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://localhost:8081",
+    "http://localhost:19006",
+    "http://localhost:19000",
+    "exp://localhost:19000",
+    "http://localhost"
+]
+logger.info("Configuring CORS middleware", origins=allowed_origins)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
