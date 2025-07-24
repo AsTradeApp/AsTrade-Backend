@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE,
     username VARCHAR(255),
+    provider VARCHAR(50),  -- "google" or "apple"
+    cavos_user_id VARCHAR(255) UNIQUE,  -- OAuth provider ID
+    wallet_address VARCHAR(255),  -- Cavos wallet address
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -166,8 +169,8 @@ CREATE TRIGGER update_positions_updated_at BEFORE UPDATE ON trading.positions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert default user for testing (optional)
-INSERT INTO users (email, api_key) 
-VALUES ('test@astrade.com', 'test-api-key-12345')
+INSERT INTO users (email, username, provider, cavos_user_id, wallet_address) 
+VALUES ('test@astrade.com', 'test_user', 'google', 'google-oauth2|test123', '0x1234567890abcdef')
 ON CONFLICT (email) DO NOTHING;
 
 -- Grant permissions
