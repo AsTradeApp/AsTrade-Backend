@@ -8,122 +8,63 @@ AsTrade Backend es una API profesional desarrollada en Python con FastAPI que in
 
 - **Framework**: FastAPI (Python 3.9+)
 - **API Exchange**: Extended Exchange (Testnet/Mainnet)
-- **HTTP Client**: httpx (async)
-- **Database**: PostgreSQL
+- **HTTP Client**: aiohttp (async)
+- **Database**: PostgreSQL + Supabase
 - **Cache**: Redis
-- **Authentication**: API Keys + HMAC Signatures
+- **Authentication**: OAuth (Google/Apple) + Extended API Keys
 - **Logging**: Structured logging con structlog
 - **Deployment**: Docker + docker-compose
 
 ## 🚀 Características
 
-### Core Trading Features
-- ✅ **Gestión de Mercados**: Obtener mercados, estadísticas, order book, trades, candles
-- ✅ **Gestión de Cuentas**: Balance, posiciones, leverage, fees
-- ✅ **Gestión de Órdenes**: Crear, editar, cancelar órdenes (limit, market, stop, TWAP)
-- ✅ **Historial**: Trades ejecutados, historial de posiciones y órdenes
-- ✅ **Transferencias**: Entre cuentas y retiros
+### Core Features
+- ✅ **Autenticación**: Login con Google/Apple + Cavos Wallet
+- ✅ **Extended Exchange**: Integración automática con Extended Exchange
+- ✅ **Trading**: Órdenes, posiciones, balances (Testnet/Mainnet)
+- ✅ **Gamificación**: Sistema de niveles y logros
+- ✅ **Seguridad**: Manejo seguro de claves StarkEx
 
 ### Características Técnicas
-- 🔒 **Seguridad**: Autenticación HMAC, rate limiting, validación de datos
+- 🔒 **Seguridad**: OAuth, API Keys, Stark signatures
 - 📊 **Monitoreo**: Health checks, métricas, logging estructurado
 - 🌐 **API REST**: Documentación OpenAPI/Swagger automática
 - 🐳 **Containerizado**: Docker ready con docker-compose
 - ⚡ **Performance**: Cliente HTTP async, connection pooling
 
-## 📦 Instalación
+## 📦 Base de Datos
 
-### Prerequisitos
+### Estructura de Tablas
 
-- Python 3.9+
-- Docker y docker-compose (opcional pero recomendado)
-- PostgreSQL (si no usas Docker)
-- Redis (si no usas Docker)
+#### 1. `auth.users` (Supabase)
+- Tabla principal de autenticación
+- Almacena datos básicos del usuario (email, etc.)
+- Referenciada por las demás tablas
 
-### 1. Clonar el Repositorio
+#### 2. `user_wallets` (Supabase)
+- Dirección de wallet StarkNet
+- Red (testnet/mainnet)
+- Hash de creación
 
-\`\`\`bash
-git clone <repository-url>
-cd AsTrade-backend
-\`\`\`
+#### 3. `astrade_user_credentials` (Supabase)
+- Claves privadas StarkEx
+- API keys de Extended Exchange
+- Configuración de entorno
 
-### 2. Configuración de Variables de Entorno
-
-\`\`\`bash
-cp .env.example .env
-\`\`\`
-
-Edita el archivo `.env` con tus configuraciones:
-
-\`\`\`env
-# Extended Exchange API
-EXTENDED_ENVIRONMENT=testnet  # o mainnet
-EXTENDED_API_KEY=tu-api-key
-EXTENDED_SECRET_KEY=tu-secret-key
-EXTENDED_STARK_PRIVATE_KEY=tu-stark-private-key
-
-# Security
-SECRET_KEY=tu-super-secret-key-aqui
-
-# Database & Redis (si usas instalación local)
-DATABASE_URL=postgresql://user:password@localhost:5432/astrade
-REDIS_URL=redis://localhost:6379/0
-\`\`\`
-
-### 3. Instalación con Docker (Recomendado)
-
-\`\`\`bash
-# Construir y levantar todos los servicios
-docker-compose up -d
-
-# Ver logs
-docker-compose logs -f
-
-# Parar servicios
-docker-compose down
-\`\`\`
-
-### 4. Instalación Local
-
-\`\`\`bash
-# Crear entorno virtual
-python -m venv env
-source env/bin/activate  # En Windows: env\\Scripts\\activate
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Ejecutar la aplicación
-python -m app.main
-\`\`\`
-
-## 🔧 Configuración Extended Exchange
-
-### 1. Obtener API Keys
-
-#### Testnet (Recomendado para desarrollo)
-1. Visita [Extended Exchange Testnet](https://testnet.extended.exchange)
-2. Crea una cuenta y genera API keys
-3. Obtén $100,000 USDC gratis diariamente del faucet
-
-#### Mainnet (Producción)
-1. Visita [Extended Exchange](https://extended.exchange)
-2. Crea una cuenta y completa KYC
-3. Deposita USDC real
-4. Genera API keys de producción
-
-### 2. Configurar Stark Keys
-
-Las Stark keys son necesarias para firmar transacciones en StarkEx L2:
-
-\`\`\`python
-# Generar Stark private key (ejemplo)
-from starkbank.ecdsa import PrivateKey
-stark_private_key = PrivateKey()
-print(f"Stark Private Key: {stark_private_key.toString()}")
-\`\`\`
+#### 4. `astrade_user_profiles` (Supabase)
+- Nombre y nivel del usuario
+- Experiencia y estadísticas
+- Logros y trades realizados
 
 ## 🌐 API Endpoints
+
+### Usuarios y Autenticación
+
+| Endpoint | Método | Descripción |
+|----------|--------|-------------|
+| `/api/v1/users` | POST | Crear usuario (Google/Apple login) |
+| `/api/v1/users/{user_id}` | GET | Obtener información de usuario |
+| `/api/v1/users/{user_id}/extended/status` | GET | Estado de Extended Exchange |
+| `/api/v1/users/{user_id}/extended/setup` | POST | Configurar Extended Exchange |
 
 ### Mercados (Públicos)
 
@@ -136,6 +77,7 @@ print(f"Stark Private Key: {stark_private_key.toString()}")
 | `/api/v1/markets/{symbol}/trades` | GET | Trades recientes |
 | `/api/v1/markets/{symbol}/candles` | GET | Datos OHLCV |
 | `/api/v1/markets/{symbol}/funding` | GET | Historia de funding rates |
+| `/api/v1/markets/trending` | GET | Mercados más activos por volumen |
 
 ### Cuentas (Privados)
 
@@ -164,55 +106,143 @@ print(f"Stark Private Key: {stark_private_key.toString()}")
 
 ## 📝 Ejemplos de Uso
 
-### 1. Obtener Mercados Disponibles
+### 1. Crear Usuario con Google/Apple
 
 \`\`\`bash
-curl -X GET "http://localhost:8000/api/v1/markets" \\
+curl -X POST "http://localhost:8000/api/v1/users" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "provider": "google",
+    "email": "user@example.com",
+    "cavos_user_id": "google-oauth2|123456789",
+    "wallet_address": "0x1234567890abcdef"
+  }'
+\`\`\`
+
+Respuesta:
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "user_id": "uuid-generado",
+    "created_at": "2024-01-23T12:34:56Z"
+  }
+}
+\`\`\`
+
+### 2. Verificar Estado Extended
+
+\`\`\`bash
+curl "http://localhost:8000/api/v1/users/{user_id}/extended/status" \\
   -H "accept: application/json"
 \`\`\`
 
-### 2. Crear una Orden Limit
-
-\`\`\`bash
-curl -X POST "http://localhost:8000/api/v1/orders" \\
-  -H "accept: application/json" \\
-  -H "Content-Type: application/json" \\
-  -H "X-Api-Key: tu-api-key" \\
-  -d '{
-    "symbol": "BTC-USD",
-    "type": "limit",
-    "side": "buy",
-    "size": "0.001",
-    "price": "45000.00",
-    "time_in_force": "gtc"
-  }'
+Respuesta:
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "extended_configured": true,
+    "status": "active",
+    "environment": "testnet",
+    "features": {
+      "trading": true,
+      "balance_check": true,
+      "position_management": true
+    }
+  }
+}
 \`\`\`
 
-### 3. Obtener Balance de Cuenta
+### 3. Obtener Mercados Trending
 
 \`\`\`bash
-curl -X GET "http://localhost:8000/api/v1/account/balance" \\
-  -H "accept: application/json" \\
-  -H "X-Api-Key: tu-api-key"
+curl "http://localhost:8000/api/v1/markets/trending?limit=5" \\
+  -H "accept: application/json"
 \`\`\`
 
-### 4. Crear Orden TWAP
+Respuesta:
+\`\`\`json
+{
+  "success": true,
+  "data": [
+    {
+      "symbol": "BTC-USDT",
+      "lastPrice": 43250,
+      "priceChange24h": 1250,
+      "priceChangePercent24h": 2.3,
+      "volume24h": 1250000,
+      "high24h": 44000,
+      "low24h": 42500,
+      "openPrice24h": 42800
+    },
+    // ... más mercados ordenados por volumen
+  ],
+  "timestamp": 1705123456789
+}
+\`\`\`
+
+### 4. Obtener Balance (Autenticado)
 
 \`\`\`bash
-curl -X POST "http://localhost:8000/api/v1/orders/twap" \\
+curl "http://localhost:8000/api/v1/account/balance" \\
   -H "accept: application/json" \\
-  -H "Content-Type: application/json" \\
-  -H "X-Api-Key: tu-api-key" \\
-  -d '{
-    "symbol": "ETH-USD",
-    "type": "twap",
-    "side": "buy",
-    "size": "1.0",
-    "duration": 3600,
-    "interval": 60,
-    "randomize": true
-  }'
+  -H "X-User-ID: tu-user-id"
 \`\`\`
+
+## 🔧 Configuración Extended Exchange
+
+### 1. Obtener API Keys
+
+#### Testnet (Recomendado para desarrollo)
+1. Visita [Extended Exchange Testnet](https://testnet.extended.exchange)
+2. Crea una cuenta y genera API keys
+3. Obtén $100,000 USDC gratis diariamente del faucet
+
+#### Mainnet (Producción)
+1. Visita [Extended Exchange](https://extended.exchange)
+2. Crea una cuenta y completa KYC
+3. Deposita USDC real
+4. Genera API keys de producción
+
+### 2. Configurar Variables de Entorno
+
+\`\`\`env
+# Extended Exchange API
+EXTENDED_ENVIRONMENT=testnet  # o mainnet
+EXTENDED_API_KEY=tu-api-key
+EXTENDED_SECRET_KEY=tu-secret-key
+EXTENDED_MOCK_ENABLED=false  # true para desarrollo sin API keys
+
+# Supabase
+SUPABASE_URL=tu-supabase-url
+SUPABASE_KEY=tu-supabase-key
+
+# Security
+SECRET_KEY=tu-super-secret-key-aqui
+\`\`\`
+
+## 🔒 Seguridad
+
+### Autenticación
+
+1. **OAuth (Google/Apple)**
+   - Frontend obtiene datos de usuario
+   - Backend crea cuenta AsTrade
+
+2. **Extended Exchange**
+   - Generación automática de Stark keys
+   - Almacenamiento seguro en Supabase
+   - API Keys nunca expuestas al frontend
+
+3. **Requests Autenticados**
+   - Header `X-User-ID` para identificar usuario
+   - Verificación automática de permisos
+
+### Rate Limiting
+
+- **Standard**: 1,000 requests/minuto
+- **Market Makers**: 60,000 requests/5 minutos
 
 ## 🧪 Testing
 
@@ -224,7 +254,7 @@ python -m pytest
 python -m pytest --cov=app
 
 # Tests específicos
-python -m pytest app/tests/test_markets.py
+python -m pytest app/tests/test_users.py
 \`\`\`
 
 ## 📊 Monitoreo
@@ -235,111 +265,49 @@ python -m pytest app/tests/test_markets.py
 curl http://localhost:8000/health
 \`\`\`
 
-### Documentación API
-
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **OpenAPI Schema**: http://localhost:8000/openapi.json
-
 ### Logs
-
-Los logs están estructurados en formato JSON para facilitar el análisis:
 
 \`\`\`bash
 # Ver logs en Docker
 docker-compose logs -f api
 
-# Filtrar logs por nivel
-docker-compose logs api | grep "ERROR"
-\`\`\`
-
-## 🔒 Seguridad
-
-### API Authentication
-
-La autenticación se realiza mediante:
-1. **API Key**: Header \`X-Api-Key\`
-2. **HMAC Signature**: Para endpoints privados
-3. **Timestamp**: Para prevenir replay attacks
-
-### Rate Limiting
-
-- **Standard**: 1,000 requests/minuto
-- **Market Makers**: 60,000 requests/5 minutos
-
-### Stark Signatures
-
-Para órdenes y transferencias se requieren firmas Stark:
-
-\`\`\`python
-# Ejemplo de firma Stark
-from starkbank.ecdsa import PrivateKey, sign
-
-private_key = PrivateKey.fromString(STARK_PRIVATE_KEY)
-message_hash = calculate_message_hash(order_data)
-signature = sign(message_hash, private_key)
+# Ver logs de Extended Exchange
+docker-compose logs -f api | grep "Extended"
 \`\`\`
 
 ## 🚀 Deployment
 
-### Producción con Docker
+### Docker (Recomendado)
 
 \`\`\`bash
-# Production build
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Levantar servicios
+docker-compose up -d
 
-# Configurar Nginx como reverse proxy
-docker-compose --profile production up -d
-\`\`\`
+# Ver logs
+docker-compose logs -f
 
-### Variables de Entorno de Producción
-
-\`\`\`env
-DEBUG=false
-EXTENDED_ENVIRONMENT=mainnet
-SECRET_KEY=super-secure-production-key
-LOG_LEVEL=WARNING
-WORKERS=4
+# Reiniciar API
+docker-compose restart api
 \`\`\`
 
 ## 🤝 Contribución
 
 1. Fork el repositorio
-2. Crea una rama feature (\`git checkout -b feature/nueva-funcionalidad\`)
-3. Commit tus cambios (\`git commit -am 'Agregar nueva funcionalidad'\`)
-4. Push a la rama (\`git push origin feature/nueva-funcionalidad\`)
+2. Crea una rama feature
+3. Commit tus cambios
+4. Push a la rama
 5. Crea un Pull Request
 
 ## 📄 Licencia
 
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+Este proyecto está licenciado bajo la Licencia MIT.
 
 ## 🆘 Soporte
 
-- **Documentación Extended Exchange**: https://docs.extended.exchange
+- **Documentación Extended**: https://docs.extended.exchange
 - **Discord Extended**: https://discord.gg/extended
 - **Issues**: Crea un issue en este repositorio
 
-## 🎯 Roadmap
-
-### Sprint 2 (Próximamente)
-- [ ] WebSocket streams en tiempo real
-- [ ] Sistema de transferencias
-- [ ] Dashboard de métricas
-- [ ] Tests automatizados
-
-### Sprint 3 
-- [ ] Algoritmos de trading automatizado
-- [ ] Risk management avanzado
-- [ ] Notificaciones push
-- [ ] Analytics avanzados
-
-### Sprint 4
-- [ ] Multi-usuario y roles
-- [ ] API rate limiting por usuario
-- [ ] Backup y recuperación
-- [ ] Deploy en producción
-
 ---
 
-**AsTrade Backend v1.0.0** - Desarrollado con ❤️ usando Extended Exchange API
+**AsTrade Backend v1.0.0** - Trading de perpetuos descentralizado con Extended Exchange
