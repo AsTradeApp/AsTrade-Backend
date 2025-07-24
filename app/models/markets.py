@@ -1,6 +1,6 @@
-from typing import Optional, List, Dict, Any
+"""Market models"""
+from typing import Optional, List
 from pydantic import BaseModel, Field
-from datetime import datetime
 from decimal import Decimal
 
 
@@ -23,82 +23,46 @@ class MarketInfo(BaseModel):
 
 
 class MarketStats(BaseModel):
-    """24h Market statistics"""
-    symbol: str
-    last_price: Decimal
-    price_change: Decimal
-    price_change_percent: Decimal
-    high_24h: Decimal
-    low_24h: Decimal
-    volume_24h: Decimal
-    volume_usd_24h: Decimal
-    open_interest: Decimal
-    funding_rate: Decimal
-    next_funding_time: datetime
-    mark_price: Decimal
-    index_price: Decimal
+    """Market statistics aligned with frontend expectations"""
+    symbol: str = Field(..., example="BTC-USD", description="Market symbol")
+    lastPrice: float = Field(..., example=43250.50, description="Current market price")
+    priceChange24h: float = Field(..., example=1100.50, description="Price change in the last 24 hours")
+    priceChangePercent24h: float = Field(..., example=2.61, description="Percentage price change in the last 24 hours")
+    volume24h: float = Field(..., example=1234.5678, description="Trading volume in the last 24 hours")
+    high24h: float = Field(..., example=43500.00, description="Highest price in the last 24 hours")
+    low24h: float = Field(..., example=42000.00, description="Lowest price in the last 24 hours")
+    openPrice24h: float = Field(..., example=42150.00, description="Opening price 24 hours ago")
 
 
-class OrderBookLevel(BaseModel):
-    """Order book price level"""
-    price: Decimal
-    size: Decimal
-    num_orders: int = 0
+class OrderBookEntry(BaseModel):
+    """Order book entry model"""
+    price: float
+    size: float
 
 
 class OrderBook(BaseModel):
     """Order book model"""
     symbol: str
-    bids: List[OrderBookLevel]
-    asks: List[OrderBookLevel]
-    timestamp: datetime
-    sequence: int
+    bids: List[OrderBookEntry]
+    asks: List[OrderBookEntry]
+    timestamp: int
 
 
 class Trade(BaseModel):
-    """Trade execution model"""
+    """Trade model"""
     id: str
     symbol: str
-    price: Decimal
-    size: Decimal
-    side: str  # buy or sell
-    timestamp: datetime
-    liquidation: bool = False
+    side: str
+    price: float
+    size: float
+    timestamp: int
 
 
 class Candle(BaseModel):
-    """OHLCV candle model"""
-    symbol: str
-    interval: str  # 1m, 5m, 15m, 30m, 1h, 4h, 1d
-    timestamp: datetime
-    open: Decimal
-    high: Decimal
-    low: Decimal
-    close: Decimal
-    volume: Decimal
-    volume_usd: Decimal
-    trades: int
-
-
-class FundingRate(BaseModel):
-    """Funding rate model"""
-    symbol: str
-    funding_rate: Decimal
-    funding_time: datetime
-    mark_price: Decimal
-    index_price: Decimal
-
-
-class MarketRequest(BaseModel):
-    """Request model for market data"""
-    symbol: Optional[str] = None
-    symbols: Optional[List[str]] = None
-    limit: int = Field(default=100, ge=1, le=1000)
-    cursor: Optional[int] = None
-
-
-class CandleRequest(MarketRequest):
-    """Request model for candle data"""
-    interval: str = Field(default="1h")
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None 
+    """Candle model"""
+    timestamp: int
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float 

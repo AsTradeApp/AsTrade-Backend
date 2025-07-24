@@ -1,100 +1,62 @@
-"""Mock data for Extended Exchange client"""
-from decimal import Decimal
+"""Mock data for Extended Exchange API client"""
 from datetime import datetime, timezone
+from typing import Optional, Dict, Any, List
 
 
-def get_mock_markets():
+def get_mock_markets() -> List[Dict[str, Any]]:
     """Get mock market data"""
     return [
         {
             "symbol": "BTC-USD",
+            "display_name": "BTC/USD",
             "base_asset": "BTC",
             "quote_asset": "USD",
             "status": "active",
-            "tick_size": "0.1",
-            "step_size": "0.001",
-            "min_order_size": "0.001",
-            "max_order_size": "100.0",
+            "tick_size": "0.5",
+            "step_size": "0.0001",
+            "min_order_size": "0.0001",
             "maker_fee": "0.0002",
             "taker_fee": "0.0005",
-            "funding_interval": 8,
+            "funding_interval": 3600,
             "max_leverage": 20,
             "is_active": True
         },
         {
             "symbol": "ETH-USD",
+            "display_name": "ETH/USD",
             "base_asset": "ETH",
             "quote_asset": "USD",
             "status": "active",
-            "tick_size": "0.01",
-            "step_size": "0.01",
-            "min_order_size": "0.01",
-            "max_order_size": "1000.0",
+            "tick_size": "0.05",
+            "step_size": "0.001",
+            "min_order_size": "0.001",
             "maker_fee": "0.0002",
             "taker_fee": "0.0005",
-            "funding_interval": 8,
+            "funding_interval": 3600,
             "max_leverage": 20,
-            "is_active": True
-        },
-        {
-            "symbol": "SOL-USD",
-            "base_asset": "SOL",
-            "quote_asset": "USD",
-            "status": "active",
-            "tick_size": "0.01",
-            "step_size": "0.1",
-            "min_order_size": "0.1",
-            "max_order_size": "10000.0",
-            "maker_fee": "0.0002",
-            "taker_fee": "0.0005",
-            "funding_interval": 8,
-            "max_leverage": 15,
             "is_active": True
         }
     ]
 
 
-def get_mock_market_stats(symbol=None):
+def get_mock_market_stats(symbol: Optional[str] = None) -> List[Dict[str, Any]]:
     """Get mock market statistics"""
     stats = [
         {
             "symbol": "BTC-USD",
-            "price": "50000.0",
-            "price_24h": "48000.0",
-            "high_24h": "51000.0",
-            "low_24h": "47500.0",
-            "volume_24h": "1000.0",
-            "volume_7d": "7000.0",
-            "trades_24h": 10000,
-            "open_interest": "500.0",
-            "funding_rate": "0.0001",
-            "next_funding_time": datetime.now(timezone.utc).isoformat()
+            "price": "43250.50",
+            "price_24h": "42150.00",
+            "volume_24h": "1234.5678",
+            "high_24h": "43500.00",
+            "low_24h": "42000.00"
         },
         {
             "symbol": "ETH-USD",
-            "price": "3000.0",
-            "price_24h": "2900.0",
-            "high_24h": "3100.0",
-            "low_24h": "2850.0",
-            "volume_24h": "5000.0",
-            "volume_7d": "35000.0",
-            "trades_24h": 8000,
-            "open_interest": "2000.0",
-            "funding_rate": "0.0002",
-            "next_funding_time": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "symbol": "SOL-USD",
-            "price": "100.0",
-            "price_24h": "95.0",
-            "high_24h": "102.0",
-            "low_24h": "94.0",
-            "volume_24h": "10000.0",
-            "volume_7d": "70000.0",
-            "trades_24h": 5000,
-            "open_interest": "5000.0",
-            "funding_rate": "0.0003",
-            "next_funding_time": datetime.now(timezone.utc).isoformat()
+            "price": "2250.25",
+            "price_24h": "2150.00",
+            "volume_24h": "5678.1234",
+            "high_24h": "2300.00",
+            "low_24h": "2100.00"
         }
     ]
     
@@ -103,51 +65,116 @@ def get_mock_market_stats(symbol=None):
     return stats
 
 
-def get_mock_orderbook(symbol, limit=100):
+def get_mock_orderbook(symbol: str, limit: int = 100) -> Dict[str, Any]:
     """Get mock order book data"""
     return {
         "symbol": symbol,
         "bids": [
-            ["49995.0", "0.1"],
-            ["49990.0", "0.5"],
-            ["49985.0", "1.0"]
-        ][:limit],
+            ["43200.50", "0.1234"],
+            ["43150.00", "0.2345"],
+            ["43100.50", "0.3456"]
+        ],
         "asks": [
-            ["50005.0", "0.2"],
-            ["50010.0", "0.4"],
-            ["50015.0", "0.8"]
-        ][:limit],
-        "timestamp": datetime.now(timezone.utc).isoformat()
+            ["43300.00", "0.1234"],
+            ["43350.50", "0.2345"],
+            ["43400.00", "0.3456"]
+        ],
+        "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000)
     }
 
 
-def get_mock_account_balance():
+def get_mock_trades(symbol: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Get mock trades data"""
+    return [
+        {
+            "id": "123456",
+            "symbol": symbol,
+            "side": "buy",
+            "price": "43250.50",
+            "size": "0.1234",
+            "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000)
+        },
+        {
+            "id": "123457",
+            "symbol": symbol,
+            "side": "sell",
+            "price": "43255.00",
+            "size": "0.2345",
+            "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000) - 1000
+        }
+    ]
+
+
+def get_mock_candles(
+    symbol: str,
+    interval: str = "1h",
+    limit: int = 100
+) -> List[Dict[str, Any]]:
+    """Get mock candle data"""
+    return [
+        {
+            "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000),
+            "open": "43200.50",
+            "high": "43300.00",
+            "low": "43100.00",
+            "close": "43250.50",
+            "volume": "123.4567"
+        },
+        {
+            "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000) - 3600000,
+            "open": "43150.00",
+            "high": "43250.00",
+            "low": "43050.00",
+            "close": "43200.50",
+            "volume": "234.5678"
+        }
+    ]
+
+
+def get_mock_account_balance() -> Dict[str, Any]:
     """Get mock account balance"""
     return {
-        "total_equity": "100000.0",
-        "available_balance": "80000.0",
-        "used_margin": "20000.0",
-        "unrealized_pnl": "5000.0",
-        "realized_pnl": "2000.0",
-        "positions_value": "25000.0"
+        "total_equity": "12345.67",
+        "total_margin": "1234.56",
+        "free_margin": "11111.11",
+        "margin_ratio": "0.1",
+        "balances": [
+            {
+                "asset": "USD",
+                "free": "10000.00",
+                "locked": "2345.67"
+            },
+            {
+                "asset": "BTC",
+                "free": "1.2345",
+                "locked": "0.1234"
+            }
+        ]
     }
 
 
-def get_mock_positions(symbol=None):
-    """Get mock positions"""
+def get_mock_positions(symbol: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Get mock positions data"""
     positions = [
         {
             "symbol": "BTC-USD",
             "side": "long",
-            "size": "0.5",
-            "entry_price": "48000.0",
-            "mark_price": "50000.0",
-            "liquidation_price": "40000.0",
-            "margin": "10000.0",
-            "leverage": "10",
-            "unrealized_pnl": "1000.0",
-            "realized_pnl": "500.0",
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "size": "0.1234",
+            "entry_price": "42150.00",
+            "mark_price": "43250.50",
+            "pnl": "135.67",
+            "margin": "1234.56",
+            "leverage": "10"
+        },
+        {
+            "symbol": "ETH-USD",
+            "side": "short",
+            "size": "2.3456",
+            "entry_price": "2250.25",
+            "mark_price": "2150.00",
+            "pnl": "235.67",
+            "margin": "2345.67",
+            "leverage": "10"
         }
     ]
     
@@ -156,47 +183,52 @@ def get_mock_positions(symbol=None):
     return positions
 
 
-def get_mock_position_history():
+def get_mock_position_history() -> List[Dict[str, Any]]:
     """Get mock position history"""
     return [
         {
-            "symbol": "SOL-USD",
+            "symbol": "BTC-USD",
             "side": "long",
-            "size": "10.0",
-            "entry_price": "180.0",
-            "exit_price": "185.0",
-            "realized_pnl": "50.0",
-            "leverage": "3.0",
-            "opened_at": datetime.now(timezone.utc).isoformat(),
-            "closed_at": datetime.now(timezone.utc).isoformat()
+            "size": "0.1234",
+            "entry_price": "42150.00",
+            "exit_price": "43250.50",
+            "pnl": "135.67",
+            "margin": "1234.56",
+            "leverage": "10",
+            "opened_at": int(datetime.now(timezone.utc).timestamp() * 1000) - 86400000,
+            "closed_at": int(datetime.now(timezone.utc).timestamp() * 1000)
+        },
+        {
+            "symbol": "ETH-USD",
+            "side": "short",
+            "size": "2.3456",
+            "entry_price": "2250.25",
+            "exit_price": "2150.00",
+            "pnl": "235.67",
+            "margin": "2345.67",
+            "leverage": "10",
+            "opened_at": int(datetime.now(timezone.utc).timestamp() * 1000) - 172800000,
+            "closed_at": int(datetime.now(timezone.utc).timestamp() * 1000) - 86400000
         }
     ]
 
 
-def get_mock_leverage(symbol=None):
+def get_mock_leverage() -> Dict[str, Any]:
     """Get mock leverage settings"""
-    leverage_data = {
-        "BTC-USD": {"current": "10.0", "max": "20.0"},
-        "ETH-USD": {"current": "5.0", "max": "20.0"},
-        "SOL-USD": {"current": "3.0", "max": "15.0"}
+    return {
+        "max_leverage": 20,
+        "current_leverage": 10,
+        "maintenance_margin_ratio": 0.05,
+        "initial_margin_ratio": 0.1
     }
-    
-    if symbol:
-        return leverage_data.get(symbol, {})
-    return leverage_data
 
 
-def get_mock_fees():
+def get_mock_fees() -> Dict[str, Any]:
     """Get mock fee structure"""
     return {
         "maker_fee": "0.0002",
         "taker_fee": "0.0005",
-        "trading_volume_30d": "50000.0",
-        "tier": "VIP1",
-        "next_tier": {
-            "name": "VIP2",
-            "volume_required": "100000.0",
-            "maker_fee": "0.00015",
-            "taker_fee": "0.0004"
-        }
+        "funding_interval": 3600,
+        "next_funding_time": int(datetime.now(timezone.utc).timestamp() * 1000) + 1800000,
+        "funding_rate": "0.0001"
     } 
