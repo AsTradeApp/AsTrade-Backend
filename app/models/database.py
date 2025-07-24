@@ -13,6 +13,9 @@ class User(Base):
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String(255), unique=True, nullable=True)
+    provider = Column(String(50), nullable=True)  # "google" or "apple"
+    cavos_user_id = Column(String(255), unique=True, nullable=True)  # OAuth provider ID
+    wallet_address = Column(String(255), nullable=True)  # Cavos wallet address
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
