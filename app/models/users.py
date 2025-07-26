@@ -59,5 +59,5 @@ class UserResponse(BaseModel):
     """Standard user response model"""
     user_id: str
     email: Optional[str] = None
-    created_at: datetime
+    created_at: datetime 
     has_api_credentials: bool = False 
