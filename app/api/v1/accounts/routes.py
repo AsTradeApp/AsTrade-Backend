@@ -4,7 +4,7 @@ import structlog
 
 from app.models.responses import SuccessResponse
 from app.models.database import User
-from app.services.database import get_current_user
+from app.services.database import get_supabase
 from app.api.v1.accounts.service import get_user_balance
 
 logger = structlog.get_logger()
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/account")
 
 
 @router.get("/balance", response_model=SuccessResponse, summary="Get account balance")
-async def get_account_balance(current_user: User = Depends(get_current_user)):
+async def get_account_balance(db = Depends(get_supabase)):
     """
     Get current account balance information for the authenticated user.
     

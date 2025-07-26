@@ -3,8 +3,7 @@ from fastapi import APIRouter, Depends, Query
 import structlog
 
 from app.models.responses import SuccessResponse
-from app.models.database import User
-from app.services.database import get_current_user
+from app.services.database import get_supabase
 from app.api.v1.orders.models import (
     OrderRequest,
     OrdersQuery,
@@ -22,7 +21,7 @@ router = APIRouter(prefix="/orders")
 @router.post("/", response_model=SuccessResponse, summary="Create new order")
 async def create_new_order(
     order_request: OrderRequest,
-    current_user: User = Depends(get_current_user)
+    db = Depends(get_supabase)
 ):
     """
     Create a new trading order.
@@ -50,7 +49,7 @@ async def get_user_orders(
     status: OrderStatus = Query(None, description="Filter by order status"),
     limit: int = Query(default=100, ge=1, le=1000, description="Number of orders to return"),
     cursor: str = Query(None, description="Pagination cursor"),
-    current_user: User = Depends(get_current_user)
+    db = Depends(get_supabase)
 ):
     """
     Get orders based on filters.
@@ -70,7 +69,7 @@ async def get_user_orders(
         limit=limit,
         cursor=cursor
     )
-    result = await get_orders(current_user, query)
+    result = await get_orders(db, query)
     return SuccessResponse(
         data=result.get('data', []),
         pagination=result.get('pagination')
