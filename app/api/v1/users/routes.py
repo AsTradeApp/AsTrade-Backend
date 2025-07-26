@@ -20,7 +20,7 @@ router = APIRouter(prefix="/users")
 @router.post("/", response_model=UserCreateResponse, summary="Create new user")
 async def create_user_route(
     user_data: UserCreateRequest,
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Create a new AsTrade user with automatic Extended Exchange setup.
@@ -48,10 +48,41 @@ async def create_user_route(
         )
 
 
+@router.post("/register", response_model=UserCreateResponse, summary="Register user from frontend")
+async def register_user_from_frontend(
+    user_data: UserCreateRequest,
+    db = Depends(get_db)
+):
+    """
+    Register user data from frontend after OAuth authentication.
+    
+    This endpoint:
+    1. Updates existing auth.users with additional metadata
+    2. Creates wallet record
+    3. Sets up Extended Exchange integration
+    4. Creates user profile for gamification
+    
+    Args:
+        user_data: User registration data from OAuth (Google/Apple) + wallet info
+        
+    Returns:
+        User registration response with user_id and creation timestamp
+    """
+    try:
+        result = await create_user(db, user_data)
+        return result
+    except Exception as e:
+        logger.error("Failed to register user from frontend", error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to register user: {str(e)}"
+        )
+
+
 @router.get("/{user_id}", response_model=SuccessResponse, summary="Get user information")
 async def get_user_route(
     user_id: str = Path(..., description="User ID"),
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Get user information including Extended Exchange setup status.
@@ -71,17 +102,17 @@ async def get_user_route(
         is_setup, status_message, credentials = await verify_user_extended_setup(db, user_id)
         
         user_data = {
-            "user_id": user.id,
-            "email": user.email,
-            "provider": user.provider,
-            "wallet_address": user.wallet_address,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "user_id": user['id'],
+            "email": user['email'],
+            "provider": user.get('raw_user_meta_data', {}).get('provider') if user.get('raw_user_meta_data') else None,
+            "wallet_address": user.get('wallet', {}).get('address') if user.get('wallet') else None,
+            "created_at": user['created_at'],
             "has_api_credentials": credentials is not None,
             "extended_setup": {
                 "is_configured": is_setup,
                 "status": status_message,
-                "environment": credentials.environment if credentials else None,
-                "trading_enabled": is_setup and credentials and credentials.environment == "testnet"
+                "environment": credentials.get('environment') if credentials else None,
+                "trading_enabled": is_setup and credentials and credentials.get('environment') == "testnet"
             }
         }
         
@@ -97,10 +128,62 @@ async def get_user_route(
         )
 
 
+@router.get("/cavos/{cavos_user_id}", response_model=SuccessResponse, summary="Get user by Cavos ID")
+async def get_user_by_cavos_id_route(
+    cavos_user_id: str = Path(..., description="Cavos User ID"),
+    db = Depends(get_db)
+):
+    """
+    Get user information by Cavos ID.
+    
+    Args:
+        cavos_user_id: Cavos User ID
+        
+    Returns:
+        User information if found
+    """
+    try:
+        from app.api.v1.users.service import get_user_by_cavos_id
+        
+        user = await get_user_by_cavos_id(db, cavos_user_id)
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Verify Extended setup
+        is_setup, status_message, credentials = await verify_user_extended_setup(db, user['id'])
+        
+        user_data = {
+            "user_id": user['id'],
+            "email": user['email'],
+            "provider": user.get('raw_user_meta_data', {}).get('provider') if user.get('raw_user_meta_data') else None,
+            "wallet_address": user.get('wallet', {}).get('address') if user.get('wallet') else None,
+            "created_at": user['created_at'],
+            "has_api_credentials": credentials is not None,
+            "extended_setup": {
+                "is_configured": is_setup,
+                "status": status_message,
+                "environment": credentials.get('environment') if credentials else None,
+                "trading_enabled": is_setup and credentials and credentials.get('environment') == "testnet"
+            }
+        }
+        
+        return SuccessResponse(data=user_data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get user by Cavos ID", cavos_user_id=cavos_user_id, error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get user: {str(e)}"
+        )
+
+
 @router.post("/{user_id}/extended/setup", response_model=SuccessResponse, summary="Setup Extended Exchange")
 async def setup_extended_route(
     user_id: str = Path(..., description="User ID"),
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Set up or re-configure Extended Exchange for an existing user.
@@ -147,7 +230,7 @@ async def setup_extended_route(
 @router.get("/{user_id}/extended/status", response_model=SuccessResponse, summary="Check Extended status")
 async def check_extended_status_route(
     user_id: str = Path(..., description="User ID"),
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Check the status of Extended Exchange integration for a user.
