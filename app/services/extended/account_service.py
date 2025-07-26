@@ -5,11 +5,10 @@ import asyncio
 import json
 import time
 from typing import Dict, Any, Optional, Tuple
-from sqlalchemy.orm import Session
+from supabase import Client
 import structlog
 import httpx
 
-from app.models.database import User, UserApiCredentials
 from app.services.extended.stark_crypto import generate_stark_credentials
 from app.config.extended_config import extended_config
 
@@ -27,7 +26,7 @@ class ExtendedAccountService:
         
     async def create_extended_account(
         self,
-        user: User,
+        user: Dict[str, Any],
         wallet_address: str,
         environment: str = "testnet"
     ) -> Dict[str, Any]:
@@ -35,7 +34,7 @@ class ExtendedAccountService:
         Create a new Extended Exchange account for AsTrade user
         
         Args:
-            user: AsTrade user object
+            user: AsTrade user dictionary
             wallet_address: StarkNet wallet address from Cavos
             environment: "testnet" or "mainnet"
             
@@ -50,7 +49,7 @@ class ExtendedAccountService:
             
             logger.info(
                 "Generated Stark credentials for user",
-                user_id=user.id,
+                user_id=user['id'],
                 public_key=public_key[:16] + "...",  # Log only part for security
                 environment=environment
             )
@@ -69,19 +68,19 @@ class ExtendedAccountService:
             
             if environment == "testnet":
                 # Simulate successful account creation
-                extended_account_id = f"extended_testnet_{user.id[:8]}"
+                extended_account_id = f"extended_testnet_{user['id'][:8]}"
                 api_key = f"api_key_testnet_{int(time.time())}"
                 api_secret = f"api_secret_testnet_{int(time.time())}"
                 
                 logger.info(
                     "Simulated Extended account creation for testnet",
-                    user_id=user.id,
+                    user_id=user['id'],
                     extended_account_id=extended_account_id,
                     environment=environment
                 )
             else:
                 # For mainnet, we would need real API integration
-                extended_account_id = f"extended_mainnet_{user.id[:8]}"
+                extended_account_id = f"extended_mainnet_{user['id'][:8]}"
                 api_key = f"api_key_mainnet_{int(time.time())}"
                 api_secret = f"api_secret_mainnet_{int(time.time())}"
             
@@ -99,7 +98,7 @@ class ExtendedAccountService:
         except Exception as e:
             logger.error(
                 "Failed to create Extended account",
-                user_id=user.id,
+                user_id=user['id'],
                 error=str(e),
                 environment=environment
             )
@@ -110,70 +109,61 @@ class ExtendedAccountService:
     
     async def store_extended_credentials(
         self,
-        db: Session,
+        db: Client,
         user_id: str,
         account_data: Dict[str, Any]
-    ) -> UserApiCredentials:
+    ) -> Dict[str, Any]:
         """
         Store Extended Exchange credentials in database
         
         Args:
-            db: Database session
+            db: Supabase client
             user_id: AsTrade user ID
             account_data: Account creation result
             
         Returns:
-            UserApiCredentials object
+            Credentials dictionary
         """
         try:
             # Check if credentials already exist
-            existing_creds = db.query(UserApiCredentials).filter(
-                UserApiCredentials.user_id == user_id
-            ).first()
+            existing_creds = db.table('astrade_user_credentials').select("*").eq('user_id', user_id).execute()
             
-            if existing_creds:
+            credentials_data = {
+                "user_id": user_id,
+                "extended_api_key": account_data['api_key'],
+                "extended_secret_key": account_data['api_secret'],
+                "extended_stark_private_key": account_data['stark_private_key'],
+                "environment": account_data['environment'],
+                "is_mock_enabled": account_data['environment'] == 'testnet',
+                "updated_at": time.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            if existing_creds.data:
                 # Update existing credentials
-                existing_creds.extended_api_key = account_data['api_key']
-                existing_creds.extended_secret_key = account_data['api_secret']
-                existing_creds.extended_stark_private_key = account_data['stark_private_key']
-                existing_creds.environment = account_data['environment']
-                existing_creds.is_mock_enabled = account_data['environment'] == 'testnet'
-                
-                db.commit()
-                db.refresh(existing_creds)
+                result = db.table('astrade_user_credentials').update(credentials_data).eq('user_id', user_id).execute()
                 
                 logger.info(
                     "Updated Extended credentials for user",
                     user_id=user_id,
                     environment=account_data['environment']
                 )
-                
-                return existing_creds
             else:
                 # Create new credentials
-                credentials = UserApiCredentials(
-                    user_id=user_id,
-                    extended_api_key=account_data['api_key'],
-                    extended_secret_key=account_data['api_secret'],
-                    extended_stark_private_key=account_data['stark_private_key'],
-                    environment=account_data['environment'],
-                    is_mock_enabled=account_data['environment'] == 'testnet'
-                )
-                
-                db.add(credentials)
-                db.commit()
-                db.refresh(credentials)
+                credentials_data["created_at"] = time.strftime('%Y-%m-%d %H:%M:%S')
+                result = db.table('astrade_user_credentials').insert(credentials_data).execute()
                 
                 logger.info(
                     "Stored Extended credentials for user",
                     user_id=user_id,
                     environment=account_data['environment']
                 )
+            
+            if not result.data:
+                raise Exception("Failed to store credentials in database")
                 
-                return credentials
+            return result.data[0]
                 
         except Exception as e:
-            db.rollback()
             logger.error(
                 "Failed to store Extended credentials",
                 user_id=user_id,
@@ -183,16 +173,16 @@ class ExtendedAccountService:
     
     async def setup_user_for_extended(
         self,
-        db: Session,
-        user: User,
+        db: Client,
+        user: Dict[str, Any],
         wallet_address: str
     ) -> Tuple[bool, str]:
         """
         Complete setup process for Extended Exchange integration
         
         Args:
-            db: Database session
-            user: AsTrade user
+            db: Supabase client
+            user: AsTrade user dictionary
             wallet_address: StarkNet wallet address
             
         Returns:
@@ -212,12 +202,12 @@ class ExtendedAccountService:
             
             # Store credentials in database
             credentials = await self.store_extended_credentials(
-                db, user.id, account_result
+                db, user['id'], account_result
             )
             
             logger.info(
                 "Successfully set up user for Extended Exchange",
-                user_id=user.id,
+                user_id=user['id'],
                 environment=environment,
                 has_credentials=credentials is not None
             )
@@ -227,39 +217,38 @@ class ExtendedAccountService:
         except Exception as e:
             logger.error(
                 "Failed to setup user for Extended",
-                user_id=user.id,
+                user_id=user['id'],
                 error=str(e)
             )
             return False, f"Setup failed: {str(e)}"
     
     async def get_user_credentials(
         self,
-        db: Session,
+        db: Client,
         user_id: str
-    ) -> Optional[UserApiCredentials]:
+    ) -> Optional[Dict[str, Any]]:
         """
         Get Extended Exchange credentials for user
         
         Args:
-            db: Database session
+            db: Supabase client
             user_id: AsTrade user ID
             
         Returns:
-            UserApiCredentials or None
+            Credentials dictionary or None
         """
-        return db.query(UserApiCredentials).filter(
-            UserApiCredentials.user_id == user_id
-        ).first()
+        result = db.table('astrade_user_credentials').select("*").eq('user_id', user_id).execute()
+        return result.data[0] if result.data else None
     
     async def verify_extended_connection(
         self,
-        credentials: UserApiCredentials
+        credentials: Dict[str, Any]
     ) -> Tuple[bool, str]:
         """
         Verify connection to Extended Exchange with user credentials
         
         Args:
-            credentials: User's Extended credentials
+            credentials: User's Extended credentials dictionary
             
         Returns:
             Tuple of (success, message)
@@ -270,7 +259,7 @@ class ExtendedAccountService:
                 "Content-Type": "application/json",
                 "Accept": "application/json",
                 "User-Agent": "AsTrade/1.0",
-                "X-Api-Key": credentials.extended_api_key
+                "X-Api-Key": credentials['extended_api_key']
             }
             
             timeout = httpx.Timeout(10.0)
@@ -286,14 +275,14 @@ class ExtendedAccountService:
                 if response.status_code == 200:
                     logger.info(
                         "Successfully verified Extended connection",
-                        user_id=credentials.user_id,
-                        environment=credentials.environment
+                        user_id=credentials['user_id'],
+                        environment=credentials['environment']
                     )
                     return True, "Connection verified successfully"
                 else:
                     logger.warning(
                         "Failed to verify Extended connection",
-                        user_id=credentials.user_id,
+                        user_id=credentials['user_id'],
                         status_code=response.status_code,
                         response=response.text[:200]
                     )
@@ -302,7 +291,7 @@ class ExtendedAccountService:
         except Exception as e:
             logger.error(
                 "Error verifying Extended connection",
-                user_id=credentials.user_id,
+                user_id=credentials['user_id'],
                 error=str(e)
             )
             return False, f"Verification error: {str(e)}"
