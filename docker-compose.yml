@@ -13,17 +13,18 @@ services:
       - EXTENDED_API_KEY=${EXTENDED_API_KEY}
       - EXTENDED_SECRET_KEY=${EXTENDED_SECRET_KEY}
       - EXTENDED_STARK_PRIVATE_KEY=${EXTENDED_STARK_PRIVATE_KEY}
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-astrade}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
       - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
+      - PORT=8000
+      - HOST=0.0.0.0
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./app:/app/app:ro
+      - .:/app
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -31,6 +32,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # PostgreSQL Database
   postgres:
@@ -40,7 +42,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -53,7 +55,7 @@ services:
 
   # Redis Cache
   redis:
-    image: redis:7-alpine
+    image: redis:latest
     ports:
       - "6379:6379"
     volumes:
