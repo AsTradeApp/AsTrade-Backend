@@ -1,78 +1,60 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from fastapi import Header, HTTPException, Depends
-from app.config.settings import settings
-from app.models.database import Base, User
+"""Database connection and configuration based on AtticusZeller template"""
 import os
-
-# Create engine (SQLite for local development)
-engine = create_engine(
-    "sqlite:///./astrade.db",
-    connect_args={"check_same_thread": False}
-)
-
-# Create sessionmaker
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from functools import lru_cache
+from supabase import create_client, Client
+from typing import Optional
 
 
-def get_db():
-    """Get database session"""
-    db = SessionLocal()
+class SupabaseConfig:
+    """Supabase configuration"""
+    def __init__(self):
+        self.supabase_url = os.getenv("SUPABASE_URL")
+        self.supabase_key = os.getenv("SUPABASE_KEY")
+        
+        if not self.supabase_url:
+            raise ValueError("SUPABASE_URL environment variable is required")
+        if not self.supabase_key:
+            raise ValueError("SUPABASE_KEY environment variable is required")
+
+
+@lru_cache()
+def get_supabase_config() -> SupabaseConfig:
+    """Get cached Supabase configuration"""
+    return SupabaseConfig()
+
+
+@lru_cache()
+def get_supabase_client() -> Client:
+    """Get cached Supabase client instance"""
+    config = get_supabase_config()
+    return create_client(config.supabase_url, config.supabase_key)
+
+
+def get_supabase() -> Client:
+    """Get Supabase client for dependency injection"""
+    return get_supabase_client()
+
+
+async def check_supabase_connection() -> tuple[bool, str]:
+    """Check if Supabase connection is working"""
     try:
-        yield db
-    finally:
-        db.close()
+        client = get_supabase_client()
+        
+        # Try to query a simple table or make a basic request
+        response = client.table('astrade_user_profiles').select("count").limit(1).execute()
+        
+        return True, "Supabase connection successful"
+    except Exception as e:
+        return False, f"Supabase connection failed: {str(e)}"
 
 
-def get_current_user_id(x_user_id: str = Header(None, alias="X-User-ID")) -> str:
-    """
-    Extract and validate user ID from X-User-ID header.
-    
-    Args:
-        x_user_id: User ID from X-User-ID header
-        
-    Returns:
-        Validated user ID
-        
-    Raises:
-        HTTPException: If header is missing or invalid
-    """
-    if not x_user_id:
-        raise HTTPException(
-            status_code=401, 
-            detail="X-User-ID header is required"
-        )
-    
-    return x_user_id
-
-
-def get_current_user(
-    user_id: str = Depends(get_current_user_id),
-    db: Session = Depends(get_db)
-) -> User:
-    """
-    Get current user from database using X-User-ID header.
-    
-    Args:
-        user_id: User ID from header
-        db: Database session
-        
-    Returns:
-        User object
-        
-    Raises:
-        HTTPException: If user not found
-    """
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
-        )
-    
-    return user
+# For backwards compatibility - these functions might be used elsewhere
+def get_db():
+    """Legacy function for SQLAlchemy compatibility - returns Supabase client"""
+    return get_supabase_client()
 
 
 def create_tables():
-    """Create all tables in the database"""
-    Base.metadata.create_all(bind=engine) 
+    """Legacy function - tables are managed by Supabase migrations"""
+    print("Tables are managed by Supabase migrations and RLS policies")
+    pass 
