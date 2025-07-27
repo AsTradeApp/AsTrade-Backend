@@ -29,6 +29,7 @@ venv.bak/
 
 # Environment Variables
 
+.env
 .env.production
 .env.staging
 
