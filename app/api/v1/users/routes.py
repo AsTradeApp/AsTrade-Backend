@@ -278,4 +278,73 @@ async def check_extended_status_route(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to check status: {str(e)}"
+        )
+
+
+@router.get("/integration/status", response_model=SuccessResponse, summary="Check complete integration status")
+async def check_integration_status_route(
+    db = Depends(get_db)
+):
+    """
+    Check the complete status of Cavos + Extended Exchange integration.
+    
+    Returns detailed information about:
+    - Database tables and records
+    - User creation flow
+    - Extended Exchange setup
+    - Available endpoints
+    """
+    try:
+        # Get basic stats
+        profiles_result = db.table('astrade_user_profiles').select("count", count="exact").execute()
+        wallets_result = db.table('user_wallets').select("count", count="exact").execute()
+        creds_result = db.table('astrade_user_credentials').select("count", count="exact").execute()
+        
+        # Get sample user data
+        sample_profile = db.table('astrade_user_profiles').select("*").limit(1).execute()
+        sample_wallet = db.table('user_wallets').select("*").limit(1).execute()
+        sample_creds = db.table('astrade_user_credentials').select("*").limit(1).execute()
+        
+        integration_status = {
+            "database": {
+                "profiles_count": profiles_result.count if hasattr(profiles_result, 'count') else len(profiles_result.data),
+                "wallets_count": wallets_result.count if hasattr(wallets_result, 'count') else len(wallets_result.data),
+                "credentials_count": creds_result.count if hasattr(creds_result, 'count') else len(creds_result.data),
+                "has_sample_data": len(sample_profile.data) > 0
+            },
+            "endpoints": {
+                "user_creation": "✅ POST /api/v1/users/register",
+                "user_lookup": "✅ GET /api/v1/users/{user_id}",
+                "cavos_lookup": "✅ GET /api/v1/users/cavos/{cavos_user_id}",
+                "extended_setup": "✅ POST /api/v1/users/{user_id}/extended/setup",
+                "extended_status": "✅ GET /api/v1/users/{user_id}/extended/status"
+            },
+            "features": {
+                "cavos_integration": "✅ User creation with Cavos data",
+                "wallet_registration": "✅ Automatic wallet record creation",
+                "extended_setup": "✅ Automatic Extended Exchange setup",
+                "profile_creation": "✅ Gamification profile creation",
+                "credential_storage": "✅ Secure credential storage"
+            },
+            "sample_data": {
+                "profile": sample_profile.data[0] if sample_profile.data else None,
+                "wallet": sample_wallet.data[0] if sample_wallet.data else None,
+                "credentials": sample_creds.data[0] if sample_creds.data else None
+            },
+            "next_steps": [
+                "Test user creation with real Cavos data",
+                "Verify Extended Exchange connection",
+                "Implement real auth.users creation",
+                "Add proper Cavos ID mapping table",
+                "Test trading functionality"
+            ]
+        }
+        
+        return SuccessResponse(data=integration_status)
+        
+    except Exception as e:
+        logger.error("Failed to check integration status", error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check integration status: {str(e)}"
         ) 

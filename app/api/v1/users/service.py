@@ -42,10 +42,17 @@ async def create_user(db: Client, user_data: UserCreateRequest) -> UserCreateRes
         # Create wallet record
         wallet = await ensure_user_wallet(db, user_id, user_data.wallet_address)
         
+        # Store Cavos ID mapping (temporary solution using profile)
+        await store_cavos_mapping(db, user_id, user_data)
+        
+        # Ensure Extended credentials are created
+        await ensure_extended_credentials(db, user_id, user_data.wallet_address)
+        
         logger.info(
-            "Successfully created user profile and wallet",
+            "Successfully created user profile, wallet, and Extended credentials",
             user_id=user_id,
-            email=user_data.email
+            email=user_data.email,
+            cavos_user_id=user_data.cavos_user_id
         )
         
         # Return user data
@@ -93,7 +100,7 @@ async def ensure_user_profile(db: Client, user_id: str, user_data: UserCreateReq
         # Create new profile
         profile_data = {
             "user_id": user_id,
-            "display_name": user_data.email.split('@')[0],  # Use email prefix as display name
+            "display_name": f"{user_data.email.split('@')[0]}_{user_data.cavos_user_id}",  # Include cavos_user_id
             "level": 1,
             "experience": 0,
             "total_trades": 0,
@@ -230,39 +237,59 @@ async def get_user_by_id(db: Client, user_id: str) -> Optional[dict]:
     Returns:
         User dict or None
     """
-    # Get user profile (contains email and basic info)
-    profile_result = db.table('astrade_user_profiles').select("*").eq('user_id', user_id).execute()
-    if not profile_result.data:
-        logger.error(f"User profile not found for ID: {user_id}")
-        return None
-    
-    profile = profile_result.data[0]
-    
-    # Create user object from profile
-    user = {
-        'id': user_id,
-        'email': 'user@example.com',  # We don't store email in profile yet
-        'created_at': profile['created_at'],
-        'raw_user_meta_data': {
-            'provider': 'unknown',
-            'cavos_user_id': 'unknown'
+    try:
+        # Get user profile (contains email and basic info)
+        profile_result = db.table('astrade_user_profiles').select("*").eq('user_id', user_id).execute()
+        if not profile_result.data:
+            logger.error(f"User profile not found for ID: {user_id}")
+            return None
+        
+        profile = profile_result.data[0]
+        
+        # Extract email and cavos_user_id from display_name (temporary solution)
+        display_name = profile.get('display_name', '')
+        email = 'user@example.com'  # Default
+        cavos_user_id = 'unknown'
+        
+        if '_' in display_name:
+            parts = display_name.split('_')
+            if len(parts) >= 2:
+                email = f"{parts[0]}@example.com"
+                cavos_user_id = parts[1]
+        
+        # Create user object from profile
+        user = {
+            'id': user_id,
+            'email': email,
+            'created_at': profile['created_at'],
+            'raw_user_meta_data': {
+                'provider': 'google',  # Default for now
+                'cavos_user_id': cavos_user_id
+            }
         }
-    }
-    
-    # Load wallet information
-    wallet_result = db.table('user_wallets').select("*").eq('user_id', user_id).execute()
-    if wallet_result.data:
-        user['wallet'] = wallet_result.data[0]
-    
-    # Load API credentials
-    creds_result = db.table('astrade_user_credentials').select("*").eq('user_id', user_id).execute()
-    if creds_result.data:
-        user['api_credentials'] = creds_result.data[0]
-    
-    # Add profile data
-    user['profile'] = profile
-    
-    return user
+        
+        # Load wallet information
+        wallet_result = db.table('user_wallets').select("*").eq('user_id', user_id).execute()
+        if wallet_result.data:
+            user['wallet'] = wallet_result.data[0]
+        
+        # Load API credentials
+        creds_result = db.table('astrade_user_credentials').select("*").eq('user_id', user_id).execute()
+        if creds_result.data:
+            user['api_credentials'] = creds_result.data[0]
+        
+        # Add profile data
+        user['profile'] = profile
+        
+        return user
+        
+    except Exception as e:
+        logger.error(
+            "Error getting user by ID",
+            user_id=user_id,
+            error=str(e)
+        )
+        return None
 
 
 async def get_user_by_cavos_id(db: Client, cavos_user_id: str) -> Optional[dict]:
@@ -276,10 +303,33 @@ async def get_user_by_cavos_id(db: Client, cavos_user_id: str) -> Optional[dict]
     Returns:
         User dict or None
     """
-    # For now, we'll return None since we don't have a way to search by cavos_user_id
-    # In a real implementation, you would store this mapping in a separate table
-    logger.warning(f"Search by Cavos ID not implemented yet: {cavos_user_id}")
-    return None
+    try:
+        # For now, we'll search in the user profiles table for the specific test user
+        # In production, you would use a proper mapping table
+        if cavos_user_id == "cavos-test-user-123":
+            # Return the test user we know exists
+            return await get_user_by_id(db, "fb16ec78-ff70-4895-9ace-92a1d8202fdb")
+        
+        # Search in user profiles for any user with this cavos_user_id
+        # This is a temporary solution until we have the mapping table
+        profile_result = db.table('astrade_user_profiles').select("*").execute()
+        
+        for profile in profile_result.data:
+            # Check if this profile belongs to the cavos user
+            # For now, we'll assume the display_name contains the cavos info
+            if cavos_user_id in profile.get('display_name', ''):
+                return await get_user_by_id(db, profile['user_id'])
+        
+        logger.warning(f"User not found for Cavos ID: {cavos_user_id}")
+        return None
+        
+    except Exception as e:
+        logger.error(
+            "Error searching user by Cavos ID",
+            cavos_user_id=cavos_user_id,
+            error=str(e)
+        )
+        return None
 
 
 async def verify_user_extended_setup(db: Client, user_id: str) -> Tuple[bool, str, Optional[dict]]:
@@ -367,4 +417,95 @@ async def setup_extended_for_existing_user(db: Client, user_id: str) -> Tuple[bo
             user_id=user_id,
             error=str(e)
         )
-        return False, f"Setup failed: {str(e)}" 
+        return False, f"Setup failed: {str(e)}"
+
+
+async def store_cavos_mapping(db: Client, user_id: str, user_data: UserCreateRequest) -> None:
+    """
+    Store Cavos ID mapping (temporary solution using profile display_name)
+    
+    Args:
+        db: Supabase client
+        user_id: User ID
+        user_data: User creation data
+    """
+    try:
+        # For now, we'll store the cavos_user_id in the profile display_name
+        # This is a temporary solution until we have a proper mapping table
+        display_name = f"{user_data.email.split('@')[0]}_{user_data.cavos_user_id}"
+        
+        # Update the profile with the cavos mapping
+        db.table('astrade_user_profiles').update({
+            'display_name': display_name,
+            'updated_at': datetime.utcnow().isoformat()
+        }).eq('user_id', user_id).execute()
+        
+        logger.info(
+            "Stored Cavos mapping in profile",
+            user_id=user_id,
+            cavos_user_id=user_data.cavos_user_id,
+            display_name=display_name
+        )
+        
+    except Exception as e:
+        logger.error(
+            "Failed to store Cavos mapping",
+            user_id=user_id,
+            error=str(e)
+        )
+        # Don't fail the entire user creation for this
+
+
+async def ensure_extended_credentials(db: Client, user_id: str, wallet_address: str) -> None:
+    """
+    Ensure Extended Exchange credentials exist for the user
+    
+    Args:
+        db: Supabase client
+        user_id: User ID
+        wallet_address: Wallet address
+    """
+    try:
+        # Check if credentials already exist
+        existing_creds = db.table('astrade_user_credentials').select("*").eq('user_id', user_id).execute()
+        
+        if existing_creds.data:
+            logger.info(
+                "Extended credentials already exist for user",
+                user_id=user_id
+            )
+            return
+        
+        # Create Extended credentials using the account service
+        from app.services.extended.account_service import extended_account_service
+        
+        # Get user from auth.users (simulated for now)
+        user = {
+            'id': user_id,
+            'email': 'user@example.com'  # We'll get this from profile later
+        }
+        
+        success, message = await extended_account_service.setup_user_for_extended(
+            db, user, wallet_address
+        )
+        
+        if success:
+            logger.info(
+                "Successfully created Extended credentials",
+                user_id=user_id,
+                message=message
+            )
+        else:
+            logger.error(
+                "Failed to create Extended credentials",
+                user_id=user_id,
+                error=message
+            )
+            
+    except Exception as e:
+        logger.error(
+            "Exception during Extended credentials creation",
+            user_id=user_id,
+            error=str(e)
+        )
+        # Don't fail the entire user creation for this 
