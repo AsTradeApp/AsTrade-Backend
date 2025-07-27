@@ -1,6 +1,8 @@
 """Mock data for Extended Exchange API client"""
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
+import random
+import time
 
 
 def get_mock_markets() -> List[Dict[str, Any]]:
@@ -35,30 +37,160 @@ def get_mock_markets() -> List[Dict[str, Any]]:
             "funding_interval": 3600,
             "max_leverage": 20,
             "is_active": True
+        },
+        {
+            "symbol": "SOL-USD",
+            "display_name": "SOL/USD",
+            "base_asset": "SOL",
+            "quote_asset": "USD",
+            "status": "active",
+            "tick_size": "0.01",
+            "step_size": "0.01",
+            "min_order_size": "0.01",
+            "maker_fee": "0.0002",
+            "taker_fee": "0.0005",
+            "funding_interval": 3600,
+            "max_leverage": 20,
+            "is_active": True
+        },
+        {
+            "symbol": "ADA-USD",
+            "display_name": "ADA/USD",
+            "base_asset": "ADA",
+            "quote_asset": "USD",
+            "status": "active",
+            "tick_size": "0.001",
+            "step_size": "1",
+            "min_order_size": "1",
+            "maker_fee": "0.0002",
+            "taker_fee": "0.0005",
+            "funding_interval": 3600,
+            "max_leverage": 20,
+            "is_active": True
+        },
+        {
+            "symbol": "DOT-USD",
+            "display_name": "DOT/USD",
+            "base_asset": "DOT",
+            "quote_asset": "USD",
+            "status": "active",
+            "tick_size": "0.01",
+            "step_size": "0.1",
+            "min_order_size": "0.1",
+            "maker_fee": "0.0002",
+            "taker_fee": "0.0005",
+            "funding_interval": 3600,
+            "max_leverage": 20,
+            "is_active": True
+        },
+        {
+            "symbol": "MATIC-USD",
+            "display_name": "MATIC/USD",
+            "base_asset": "MATIC",
+            "quote_asset": "USD",
+            "status": "active",
+            "tick_size": "0.001",
+            "step_size": "1",
+            "min_order_size": "1",
+            "maker_fee": "0.0002",
+            "taker_fee": "0.0005",
+            "funding_interval": 3600,
+            "max_leverage": 20,
+            "is_active": True
+        },
+        {
+            "symbol": "LINK-USD",
+            "display_name": "LINK/USD",
+            "base_asset": "LINK",
+            "quote_asset": "USD",
+            "status": "active",
+            "tick_size": "0.01",
+            "step_size": "0.1",
+            "min_order_size": "0.1",
+            "maker_fee": "0.0002",
+            "taker_fee": "0.0005",
+            "funding_interval": 3600,
+            "max_leverage": 20,
+            "is_active": True
+        },
+        {
+            "symbol": "UNI-USD",
+            "display_name": "UNI/USD",
+            "base_asset": "UNI",
+            "quote_asset": "USD",
+            "status": "active",
+            "tick_size": "0.01",
+            "step_size": "0.1",
+            "min_order_size": "0.1",
+            "maker_fee": "0.0002",
+            "taker_fee": "0.0005",
+            "funding_interval": 3600,
+            "max_leverage": 20,
+            "is_active": True
         }
     ]
 
 
 def get_mock_market_stats(symbol: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Get mock market statistics"""
-    stats = [
-        {
-            "symbol": "BTC-USD",
-            "price": "43250.50",
-            "price_24h": "42150.00",
-            "volume_24h": "1234.5678",
-            "high_24h": "43500.00",
-            "low_24h": "42000.00"
-        },
-        {
-            "symbol": "ETH-USD",
-            "price": "2250.25",
-            "price_24h": "2150.00",
-            "volume_24h": "5678.1234",
-            "high_24h": "2300.00",
-            "low_24h": "2100.00"
+    """Get mock market statistics with dynamic pricing"""
+    
+    # Base prices for each market
+    base_prices = {
+        "BTC-USD": 43000.0,
+        "ETH-USD": 2200.0,
+        "SOL-USD": 95.0,
+        "ADA-USD": 0.45,
+        "DOT-USD": 6.5,
+        "MATIC-USD": 0.75,
+        "LINK-USD": 14.0,
+        "UNI-USD": 8.5
+    }
+    
+    # Generate dynamic stats for each market
+    stats = []
+    current_time = int(time.time())
+    
+    for market_symbol, base_price in base_prices.items():
+        # Add some randomness to make it feel more realistic
+        random_factor = random.uniform(0.95, 1.05)
+        current_price = base_price * random_factor
+        
+        # Generate 24h ago price with some variation
+        price_24h = base_price * random.uniform(0.90, 1.10)
+        
+        # Calculate price changes
+        price_change = current_price - price_24h
+        price_change_percent = (price_change / price_24h * 100) if price_24h > 0 else 0
+        
+        # Generate volume based on market size
+        volume_base = {
+            "BTC-USD": 1000000,
+            "ETH-USD": 500000,
+            "SOL-USD": 200000,
+            "ADA-USD": 50000,
+            "DOT-USD": 80000,
+            "MATIC-USD": 60000,
+            "LINK-USD": 120000,
+            "UNI-USD": 90000
         }
-    ]
+        
+        volume = volume_base.get(market_symbol, 50000) * random.uniform(0.8, 1.2)
+        
+        # Generate high/low based on current price
+        high_24h = current_price * random.uniform(1.02, 1.08)
+        low_24h = current_price * random.uniform(0.92, 0.98)
+        
+        stat = {
+            "symbol": market_symbol,
+            "price": f"{current_price:.2f}",
+            "price_24h": f"{price_24h:.2f}",
+            "volume_24h": f"{volume:.4f}",
+            "high_24h": f"{high_24h:.2f}",
+            "low_24h": f"{low_24h:.2f}",
+            "timestamp": current_time
+        }
+        
+        stats.append(stat)
     
     if symbol:
         return [stat for stat in stats if stat["symbol"] == symbol]
