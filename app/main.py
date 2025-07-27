@@ -52,10 +52,10 @@ app.add_middleware(
 )
 
 # Register routers
-app.include_router(users_router, prefix="/api/v1", tags=["users"])
-app.include_router(markets_router, prefix="/api/v1", tags=["markets"])
-app.include_router(orders_router, prefix="/api/v1", tags=["orders"])
-app.include_router(accounts_router, prefix="/api/v1", tags=["accounts"])
+app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
+app.include_router(markets_router, prefix="/api/v1/markets", tags=["markets"])
+app.include_router(orders_router, prefix="/api/v1/orders", tags=["orders"])
+app.include_router(accounts_router, prefix="/api/v1/account", tags=["accounts"])
 
 @app.on_event("startup")
 async def startup_event():

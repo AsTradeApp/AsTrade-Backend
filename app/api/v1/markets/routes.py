@@ -21,7 +21,7 @@ from app.api.v1.markets.service import (
     get_trending_markets
 )
 
-router = APIRouter(prefix="/markets", tags=["markets"])
+router = APIRouter(tags=["markets"])
 
 
 @router.get("/", response_model=SuccessResponse, summary="Get all markets")

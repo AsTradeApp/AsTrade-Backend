@@ -8,7 +8,7 @@ from app.services.database import get_supabase
 from app.api.v1.accounts.service import get_user_balance
 
 logger = structlog.get_logger()
-router = APIRouter(prefix="/account")
+router = APIRouter()
 
 
 @router.get("/balance", response_model=SuccessResponse, summary="Get account balance")

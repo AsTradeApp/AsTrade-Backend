@@ -15,7 +15,7 @@ from app.api.v1.orders.service import (
 )
 
 logger = structlog.get_logger()
-router = APIRouter(prefix="/orders")
+router = APIRouter()
 
 
 @router.post("/", response_model=SuccessResponse, summary="Create new order")

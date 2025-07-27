@@ -14,7 +14,7 @@ from app.api.v1.users.service import (
 )
 
 logger = structlog.get_logger()
-router = APIRouter(prefix="/users")
+router = APIRouter()
 
 
 @router.post("/", response_model=UserCreateResponse, summary="Create new user")
