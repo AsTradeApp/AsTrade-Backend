@@ -310,6 +310,11 @@ async def get_user_by_cavos_id(db: Client, cavos_user_id: str) -> Optional[dict]
             # Return the test user we know exists
             return await get_user_by_id(db, "fb16ec78-ff70-4895-9ace-92a1d8202fdb")
         
+        # Also accept the test ID that the frontend is using
+        if cavos_user_id == "test-cavos-user-id":
+            # Return the test user we know exists
+            return await get_user_by_id(db, "fb16ec78-ff70-4895-9ace-92a1d8202fdb")
+        
         # Search in user profiles for any user with this cavos_user_id
         # This is a temporary solution until we have the mapping table
         profile_result = db.table('astrade_user_profiles').select("*").execute()
