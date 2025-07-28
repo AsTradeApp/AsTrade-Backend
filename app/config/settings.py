@@ -32,12 +32,13 @@ class Settings(BaseSettings):
     extended_api_key: Optional[str] = Field(default=None, env="EXTENDED_API_KEY")
     extended_secret_key: Optional[str] = Field(default=None, env="EXTENDED_SECRET_KEY")
     extended_stark_private_key: Optional[str] = Field(default=None, env="EXTENDED_STARK_PRIVATE_KEY")
+    extended_vault_id: Optional[int] = Field(default=None, env="EXTENDED_VAULT_ID")
     
     # Database
     database_url: str = Field(env="DATABASE_URL", default="postgresql://postgres:postgres@localhost:5432/astrade")
     
     # Redis
-    redis_url: str = Field(env="REDIS_URL", default="redis://localhost:6379/0")
+    redis_url: str = Field(env="REDIS_URL", default="redis://localhost:6381/0")
     
     # Rate Limiting
     rate_limit_requests: int = Field(default=1000, env="RATE_LIMIT_REQUESTS")
