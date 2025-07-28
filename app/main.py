@@ -1,6 +1,7 @@
 """FastAPI application with Supabase integration"""
 import structlog
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -37,10 +38,29 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan events for startup and shutdown"""
+    # Startup
+    logger.info("Starting AsTrade API")
+    
+    # Check database connection
+    success, message = await check_supabase_connection()
+    if success:
+        logger.info("Database connection successful")
+    else:
+        logger.error("Database connection failed", error=message)
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down AsTrade API")
+
 app = FastAPI(
     title="AsTrade API",
     description="Backend API for AsTrade platform",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Configure CORS
@@ -58,18 +78,6 @@ app.include_router(markets_router, prefix="/api/v1/markets", tags=["markets"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["orders"])
 app.include_router(accounts_router, prefix="/api/v1/account", tags=["accounts"])
 app.include_router(stark_router, prefix="/api/v1/stark", tags=["stark-trading"])
-
-@app.on_event("startup")
-async def startup_event():
-    """Run startup tasks"""
-    logger.info("Starting AsTrade API")
-    
-    # Check database connection
-    success, message = await check_supabase_connection()
-    if success:
-        logger.info("Database connection successful")
-    else:
-        logger.error("Database connection failed", error=message)
 
 @app.get("/health")
 async def health_check():

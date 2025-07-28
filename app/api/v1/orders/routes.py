@@ -3,7 +3,9 @@ from fastapi import APIRouter, Depends, Query
 import structlog
 
 from app.models.responses import SuccessResponse
+from app.models.database import User
 from app.services.database import get_supabase
+from app.services.auth import get_current_user
 from app.api.v1.orders.models import (
     OrderRequest,
     OrdersQuery,
@@ -23,7 +25,8 @@ router = APIRouter()
 @router.post("/", response_model=SuccessResponse, summary="Create new order")
 async def create_new_order(
     order_request: OrderRequest,
-    db = Depends(get_supabase)
+    db = Depends(get_supabase),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new trading order.
@@ -159,7 +162,6 @@ async def test_extended_client_demo(
     - Auto Cancel: True
     """
     # Create a mock user for testing
-    from app.models.database import User
     mock_user = User(
         id="demo_user_123",
         email="demo@astrade.com",

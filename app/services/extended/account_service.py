@@ -8,7 +8,9 @@ from typing import Dict, Any, Optional, Tuple
 from supabase import Client
 import structlog
 import httpx
+from sqlalchemy.orm import Session
 
+from app.models.database import User
 from app.services.extended.stark_crypto import generate_stark_credentials
 from app.config.extended_config import extended_config
 from app.services.extended.starknet_adapter import (
@@ -240,16 +242,10 @@ class ExtendedAccountService:
         Complete setup process for Extended Exchange integration using Starknet wallet
         
         Args:
-<<<<<<< HEAD
-            db: Supabase client
-            user: AsTrade user dictionary
-            wallet_address: StarkNet wallet address
-=======
             db: Database session
             user: AsTrade user
             starknet_wallet: Starknet wallet data from Cavos
             environment: Environment to use ("testnet" or "mainnet")
->>>>>>> 5730961 (Add extended account service)
             
         Returns:
             Tuple of (success, message)
