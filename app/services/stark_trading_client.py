@@ -24,6 +24,11 @@ class StarkTradingClientError(Exception):
     pass
 
 
+class ConfigurationError(Exception):
+    """Custom exception for configuration errors"""
+    pass
+
+
 class StarkTradingService:
     """Service for Stark perpetual trading operations"""
     
@@ -32,16 +37,46 @@ class StarkTradingService:
         self.client: Optional[BlockingTradingClient] = None
         self.account: Optional[StarkPerpetualAccount] = None
         
-        # Load configuration from environment variables
-        self.api_key = os.getenv("STARK_API_KEY")
-        self.public_key = os.getenv("STARK_PUBLIC_KEY") 
-        self.private_key = os.getenv("STARK_PRIVATE_KEY")
-        self.vault = int(os.getenv("STARK_VAULT"))
+        # Store configuration without validation (lazy loading)
+        self.api_key = os.getenv("EXTENDED_API_KEY")
+        self.public_key = os.getenv("EXTENDED_SECRET_PUBLIC_KE")
+        self.private_key = os.getenv("EXTENDED_STARK_PRIVATE_KEY")
+        self.vault = os.getenv("EXTENDED_VAULT_ID")  # Store as string initially
         
+        logger.info("Stark trading service initialized (not connected)")
+
+    def validate_configuration(self):
+        """Validate all required configuration is present"""
+        required_env_vars = {
+            "EXTENDED_API_KEY": (self.api_key, "API key"),
+            "EXTENDED_SECRET_PUBLIC_KE": (self.public_key, "Public key"),
+            "EXTENDED_STARK_PRIVATE_KEY": (self.private_key, "Private key"),
+            "EXTENDED_VAULT_ID": (self.vault, "Vault ID")
+        }
+        
+        missing_vars = []
+        for var_name, (value, description) in required_env_vars.items():
+            if value is None:
+                missing_vars.append(f"{description} ({var_name})")
+        
+        if missing_vars:
+            error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+            logger.error(error_msg)
+            raise ConfigurationError(error_msg)
+        
+        try:
+            self.vault = int(self.vault)
+        except (TypeError, ValueError) as e:
+            error_msg = f"Invalid EXTENDED_VAULT_ID value: must be an integer"
+            logger.error(error_msg)
+            raise ConfigurationError(error_msg) from e
     
     async def initialize_client(self) -> BlockingTradingClient:
         """Initialize and return the trading client"""
         try:
+            # Validate configuration before proceeding
+            self.validate_configuration()
+            
             # Create Stark account
             self.account = StarkPerpetualAccount(
                 vault=self.vault,
