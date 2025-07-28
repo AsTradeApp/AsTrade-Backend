@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
+    # Supabase Configuration
+    supabase_url: str = Field(env="SUPABASE_URL")
+    supabase_key: str = Field(env="SUPABASE_KEY")
+    
     # Extended Exchange API
     extended_environment: str = Field(default="testnet", env="EXTENDED_ENVIRONMENT")  # testnet or mainnet
     extended_api_key: Optional[str] = Field(default=None, env="EXTENDED_API_KEY")
