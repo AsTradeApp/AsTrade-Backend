@@ -1,5 +1,5 @@
 """Stark trading endpoints"""
-from fastapi import APIRouter
+from fastapi import APIRouter, WebSocket
 import structlog
 
 from app.models.responses import SuccessResponse
@@ -15,6 +15,10 @@ from app.api.v1.stark.service import (
     cancel_stark_order,
     get_stark_account_info,
     initialize_stark_client
+)
+from app.services.price_streaming_service import (
+    price_streaming_service,
+    handle_price_stream_websocket
 )
 
 logger = structlog.get_logger()
@@ -133,16 +137,108 @@ async def health_check():
     """
     try:
         account_info = await get_stark_account_info()
+        price_health = await price_streaming_service.health_check()
+        
         return SuccessResponse(data={
             "status": "healthy",
             "service": "stark_trading",
             "account_configured": account_info.vault is not None,
-            "client_initialized": account_info.initialized
+            "client_initialized": account_info.initialized,
+            "price_streaming": price_health
         })
     except Exception as e:
         logger.error("Stark trading health check failed", error=str(e))
         return SuccessResponse(data={
             "status": "unhealthy",
             "service": "stark_trading",
+            "error": str(e)
+        })
+
+
+@router.websocket("/stream/prices/{symbol}")
+async def websocket_price_stream(websocket: WebSocket, symbol: str):
+    """
+    WebSocket endpoint for real-time price streaming using x10 perpetual orderbook.
+    
+    Args:
+        websocket: WebSocket connection
+        symbol: Trading symbol (e.g., BTC-USD)
+    
+    This endpoint provides real-time price updates from the x10 perpetual orderbook.
+    Clients will receive price updates whenever the best bid or ask changes.
+    
+    Example usage:
+    ```javascript
+    const ws = new WebSocket('ws://localhost:8000/api/v1/stark/stream/prices/BTC-USD');
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log('Price update:', data);
+    };
+    ```
+    
+    Message format:
+    ```json
+    {
+        "type": "price_update",
+        "symbol": "BTC-USD",
+        "price": 100250.50,
+        "best_bid": 100248.25,
+        "best_ask": 100252.75,
+        "spread": 4.50,
+        "timestamp": "2024-01-01T12:00:00.000Z"
+    }
+    ```
+    """
+    await handle_price_stream_websocket(websocket, symbol)
+
+
+@router.get("/stream/prices/{symbol}/current", response_model=SuccessResponse, summary="Get current price")
+async def get_current_price(symbol: str):
+    """
+    Get the current price for a symbol without establishing a WebSocket connection.
+    
+    Args:
+        symbol: Trading symbol (e.g., BTC-USD)
+    
+    Returns:
+        Current price data if available
+    
+    This endpoint returns the last known price from the streaming service.
+    If no price data is available, it will return null.
+    """
+    try:
+        current_price = await price_streaming_service.get_current_price(symbol)
+        return SuccessResponse(data=current_price)
+    except Exception as e:
+        logger.error("Failed to get current price", symbol=symbol, error=str(e))
+        return SuccessResponse(data=None, message=f"Failed to get price for {symbol}")
+
+
+@router.post("/stream/start/{symbol}", response_model=SuccessResponse, summary="Start price streaming")
+async def start_price_streaming(symbol: str):
+    """
+    Manually start price streaming for a symbol.
+    
+    Args:
+        symbol: Trading symbol (e.g., BTC-USD)
+    
+    Returns:
+        Status of the streaming service
+    
+    This endpoint can be used to pre-warm the price streaming service
+    before clients connect via WebSocket.
+    """
+    try:
+        success = await price_streaming_service.start_orderbook_stream(symbol)
+        return SuccessResponse(data={
+            "symbol": symbol,
+            "streaming": success,
+            "message": f"Price streaming {'started' if success else 'failed'} for {symbol}"
+        })
+    except Exception as e:
+        logger.error("Failed to start price streaming", symbol=symbol, error=str(e))
+        return SuccessResponse(data={
+            "symbol": symbol,
+            "streaming": False,
             "error": str(e)
         }) 
