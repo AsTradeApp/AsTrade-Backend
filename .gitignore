@@ -79,3 +79,13 @@ dmypy.json
 # Temporary files
 *.tmp
 *.temp.env
+
+# Rust/Cargo
+target/
+**/target/
+*.rs.bk
+Cargo.lock
+
+# Stark Crypto
+stark-crypto-consolidated/target/
+stark-wrapper-py/target/
