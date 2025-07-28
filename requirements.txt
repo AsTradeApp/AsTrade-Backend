@@ -1,9 +1,11 @@
+# Core dependencies
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-python-dotenv==1.0.0
-pydantic==2.5.1
+pydantic==2.5.0
 pydantic-settings==2.1.0
-SQLAlchemy==2.0.23
+
+# Database
+sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 redis==5.0.1
 httpx==0.23.3
@@ -12,3 +14,15 @@ aiohttp==3.8.5
 supabase==1.0.3
 python-jose[cryptography]
 passlib[bcrypt] 
+
+# Extended Exchange integration
+httpx==0.25.2
+aiohttp==3.9.1
+x10==1.0.0
+
+# Cryptography and security
+cryptography==41.0.8
+starknet-py==0.21.0
+
+# Structured logging
+structlog==23.2.0 
