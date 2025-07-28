@@ -36,16 +36,8 @@ class StarkTradingService:
         self.api_key = os.getenv("STARK_API_KEY")
         self.public_key = os.getenv("STARK_PUBLIC_KEY") 
         self.private_key = os.getenv("STARK_PRIVATE_KEY")
-        self.vault = int(os.getenv("STARK_VAULT", "500029"))
+        self.vault = int(os.getenv("STARK_VAULT"))
         
-        # Validate configuration
-        if not all([self.api_key, self.public_key, self.private_key]):
-            logger.warning("Stark trading configuration incomplete - using default test values")
-            # Default test values from the example
-            self.api_key = "d60627227f58690dad2d3039ff7e4da9"
-            self.public_key = "0x24e50fe6d5247d20fedc23889c012c556eee175a398c355903b742b9c545f7f"
-            self.private_key = "0x6db5a32178b49fea8da102feeef5bf4e1449af13a41b5f850173f109009f00a"
-            self.vault = 500029
     
     async def initialize_client(self) -> BlockingTradingClient:
         """Initialize and return the trading client"""
