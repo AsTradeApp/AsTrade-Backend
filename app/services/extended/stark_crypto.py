@@ -3,8 +3,12 @@ Stark cryptography utilities for Extended Exchange integration
 """
 import hashlib
 import secrets
-from typing import Tuple, Dict, Any
+import os
+from typing import Tuple, Dict, Any, Optional
 from dataclasses import dataclass
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 
 @dataclass
@@ -36,6 +40,84 @@ class StarkCrypto:
         return private_key_bytes.hex()
     
     @staticmethod
+    def generate_private_key_from_password(
+        password: str,
+        salt: Optional[bytes] = None,
+        method: str = "pbkdf2",
+        iterations: int = 100000
+    ) -> Tuple[str, bytes]:
+        """
+        Generate a deterministic Stark private key from a password
+        
+        Args:
+            password: User password as entropy source
+            salt: Optional salt bytes. If None, generates random salt
+            method: "pbkdf2" or "scrypt" for key derivation
+            iterations: Number of iterations for PBKDF2 (ignored for scrypt)
+            
+        Returns:
+            Tuple of (hex_private_key, salt_used)
+        """
+        if salt is None:
+            salt = os.urandom(32)  # 256-bit salt
+        
+        password_bytes = password.encode('utf-8')
+        
+        if method == "pbkdf2":
+            # Using PBKDF2 with SHA256
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,  # 256 bits for private key
+                salt=salt,
+                iterations=iterations,
+            )
+            key_bytes = kdf.derive(password_bytes)
+            
+        elif method == "scrypt":
+            # Using scrypt (more memory-hard, better for password-based keys)
+            kdf = Scrypt(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                n=2**14,    # CPU cost factor
+                r=8,        # Memory cost factor
+                p=1,        # Parallelization factor
+            )
+            key_bytes = kdf.derive(password_bytes)
+            
+        else:
+            raise ValueError(f"Unsupported method: {method}. Use 'pbkdf2' or 'scrypt'")
+        
+        return key_bytes.hex(), salt
+    
+    @staticmethod
+    def regenerate_private_key_from_password(
+        password: str,
+        salt: bytes,
+        method: str = "pbkdf2",
+        iterations: int = 100000
+    ) -> str:
+        """
+        Regenerate the same private key from password and known salt
+        
+        Args:
+            password: Original password
+            salt: Salt bytes used in original generation
+            method: KDF method used ("pbkdf2" or "scrypt")
+            iterations: Original iterations count
+            
+        Returns:
+            hex string of regenerated private key
+        """
+        private_key, _ = StarkCrypto.generate_private_key_from_password(
+            password=password,
+            salt=salt,
+            method=method,
+            iterations=iterations
+        )
+        return private_key
+    
+    @staticmethod
     def derive_public_key(private_key: str) -> str:
         """
         Derive public key from private key
@@ -64,6 +146,72 @@ class StarkCrypto:
             StarkKeyPair with private and public keys
         """
         private_key = StarkCrypto.generate_private_key()
+        public_key = StarkCrypto.derive_public_key(private_key)
+        
+        return StarkKeyPair(
+            private_key=private_key,
+            public_key=public_key
+        )
+    
+    @staticmethod
+    def generate_key_pair_from_password(
+        password: str,
+        salt: Optional[bytes] = None,
+        method: str = "pbkdf2",
+        iterations: int = 100000
+    ) -> Tuple[StarkKeyPair, bytes]:
+        """
+        Generate a complete Stark key pair from a password
+        
+        Args:
+            password: User password as entropy source
+            salt: Optional salt bytes. If None, generates random salt
+            method: "pbkdf2" or "scrypt" for key derivation
+            iterations: Number of iterations for PBKDF2
+            
+        Returns:
+            Tuple of (StarkKeyPair, salt_used)
+        """
+        private_key, salt_used = StarkCrypto.generate_private_key_from_password(
+            password=password,
+            salt=salt,
+            method=method,
+            iterations=iterations
+        )
+        public_key = StarkCrypto.derive_public_key(private_key)
+        
+        key_pair = StarkKeyPair(
+            private_key=private_key,
+            public_key=public_key
+        )
+        
+        return key_pair, salt_used
+    
+    @staticmethod
+    def regenerate_key_pair_from_password(
+        password: str,
+        salt: bytes,
+        method: str = "pbkdf2",
+        iterations: int = 100000
+    ) -> StarkKeyPair:
+        """
+        Regenerate the same key pair from password and known salt
+        
+        Args:
+            password: Original password
+            salt: Salt bytes used in original generation
+            method: KDF method used
+            iterations: Original iterations count
+            
+        Returns:
+            StarkKeyPair with regenerated keys
+        """
+        private_key = StarkCrypto.regenerate_private_key_from_password(
+            password=password,
+            salt=salt,
+            method=method,
+            iterations=iterations
+        )
         public_key = StarkCrypto.derive_public_key(private_key)
         
         return StarkKeyPair(
@@ -154,6 +302,30 @@ def generate_stark_credentials() -> Dict[str, str]:
     """
     key_pair = StarkCrypto.generate_key_pair()
     return key_pair.to_dict()
+
+
+def generate_stark_credentials_from_password(
+    password: str,
+    salt: Optional[bytes] = None,
+    method: str = "pbkdf2"
+) -> Tuple[Dict[str, str], bytes]:
+    """
+    Generate Stark credentials from a password
+    
+    Args:
+        password: User password
+        salt: Optional salt (generates random if None)
+        method: Key derivation method
+        
+    Returns:
+        Tuple of (credentials_dict, salt_used)
+    """
+    key_pair, salt_used = StarkCrypto.generate_key_pair_from_password(
+        password=password,
+        salt=salt,
+        method=method
+    )
+    return key_pair.to_dict(), salt_used
 
 
 def create_order_signature(
