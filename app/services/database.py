@@ -7,9 +7,20 @@ from typing import Optional
 
 class SupabaseConfig:
     """Supabase configuration"""
-    def __init__(self):
-        self.supabase_url = os.getenv("SUPABASE_URL")
-        self.supabase_key = os.getenv("SUPABASE_KEY")
+    def __init__(self, supabase_url: str = None, supabase_key: str = None):
+        # Try to get from parameters first, then from settings, then from env
+        if supabase_url and supabase_key:
+            self.supabase_url = supabase_url
+            self.supabase_key = supabase_key
+        else:
+            try:
+                from app.config.settings import settings
+                self.supabase_url = settings.supabase_url
+                self.supabase_key = settings.supabase_key
+            except ImportError:
+                # Fallback to environment variables for edge cases
+                self.supabase_url = os.getenv("SUPABASE_URL")
+                self.supabase_key = os.getenv("SUPABASE_KEY")
         
         if not self.supabase_url:
             raise ValueError("SUPABASE_URL environment variable is required")
@@ -28,6 +39,12 @@ def get_supabase_client() -> Client:
     """Get cached Supabase client instance"""
     config = get_supabase_config()
     return create_client(config.supabase_url, config.supabase_key)
+
+
+def refresh_supabase_config():
+    """Clear cached configuration and reload from environment"""
+    get_supabase_config.cache_clear()
+    get_supabase_client.cache_clear()
 
 
 def get_supabase() -> Client:
