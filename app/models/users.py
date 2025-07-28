@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -59,5 +59,69 @@ class UserResponse(BaseModel):
     """Standard user response model"""
     user_id: str
     email: Optional[str] = None
-    created_at: datetime 
-    has_api_credentials: bool = False 
+    created_at: datetime
+    has_api_credentials: bool = False
+
+
+class StarknetWalletOnboardingRequest(BaseModel):
+    """Request model for Extended onboarding with Starknet wallet via Cavos"""
+    # Wallet data from Cavos
+    private_key: str = Field(..., description="Starknet private key from Cavos wallet")
+    public_key: str = Field(..., description="Starknet public key from Cavos wallet") 
+    address: str = Field(..., description="Starknet wallet address")
+    network: str = Field(default="sepolia", description="Network: sepolia or mainnet")
+    
+    # Cavos authentication data
+    access_token: str = Field(..., description="User's Cavos access token for transaction signing")
+    org_id: str = Field(..., description="Cavos organization ID")
+    user_id: str = Field(..., description="Cavos user ID")
+    
+    # Optional fields
+    vault_id: Optional[int] = Field(None, description="Vault ID (optional)")
+    environment: str = Field(default="testnet", description="Extended environment: testnet or mainnet")
+    referral_code: Optional[str] = Field(None, description="Referral code (optional)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "private_key": "0x1234567890abcdef...",
+                "public_key": "0xabcdef1234567890...",
+                "address": "0x067a5c3e7c4e5b7d9f...",
+                "network": "sepolia",
+                "access_token": "cavos_access_token_here",
+                "org_id": "org-123",
+                "user_id": "auth0|1234567890",
+                "vault_id": 123456,
+                "environment": "testnet",
+                "referral_code": "ASTRADE2024"
+            }
+        }
+
+
+class ExtendedOnboardingResponse(BaseModel):
+    """Response model for Extended onboarding"""
+    success: bool
+    account_id: Optional[str] = None
+    transaction_hash: Optional[str] = None
+    environment: str
+    message: str
+    setup_completed: bool
+    next_steps: List[str] = []
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "account_id": "extended_testnet_12345678_1640995200",
+                "transaction_hash": "0x987654321fedcba987654321fedcba9876543210",
+                "environment": "testnet",
+                "message": "Extended Exchange account created successfully",
+                "setup_completed": True,
+                "next_steps": [
+                    "Extended Exchange account is now active",
+                    "Transaction confirmed on Starknet",
+                    "You can now start trading with Extended Exchange",
+                    "Check your balance and begin exploring features"
+                ]
+            }
+        }
