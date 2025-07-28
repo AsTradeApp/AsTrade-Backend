@@ -6,20 +6,20 @@ class ExtendedExchangeConfig:
     """Configuration for Extended Exchange API integration"""
     
     # API Endpoints - URLs oficiales de Extended Exchange
-    TESTNET_BASE_URL = "https://api.testnet.extended.exchange/api/v1"
+    TESTNET_BASE_URL = "https://api.starknet.sepolia.extended.exchange/api/v1"
     MAINNET_BASE_URL = "https://api.extended.exchange/api/v1"
     
-    # WebSocket URLs
-    TESTNET_WS_URL = "wss://api.testnet.extended.exchange/stream.extended.exchange/v1"
+    # WebSocket URLs - Updated with working endpoints
+    TESTNET_WS_URL = "wss://api.extended.exchange/stream.extended.exchange/v1"
     MAINNET_WS_URL = "wss://api.extended.exchange/stream.extended.exchange/v1"
     
     # Onboarding URLs para creación de cuentas
-    TESTNET_ONBOARDING_URL = "https://api.testnet.extended.exchange"
+    TESTNET_ONBOARDING_URL = "https://api.starknet.sepolia.extended.exchange"
     MAINNET_ONBOARDING_URL = "https://api.extended.exchange"
     
     # Signing domains para firmas Stark
     TESTNET_SIGNING_DOMAIN = "testnet.x10.exchange"  # Legacy domain
-    TESTNET_SIGNING_DOMAIN_NEW = "testnet.extended.exchange"
+    TESTNET_SIGNING_DOMAIN_NEW = "starknet.sepolia.extended.exchange"
     MAINNET_SIGNING_DOMAIN = "extended.exchange"
     
     @property
@@ -56,7 +56,7 @@ class ExtendedExchangeConfig:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "AsTrade/1.0"  # Mandatory header según la documentación
+            "User-Agent": "AsTrade/1.0.0 (compatible; MyApp/1.0; +https://extended.exchange)"
         }
         
         if settings.extended_api_key:
