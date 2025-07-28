@@ -8,6 +8,7 @@ from app.api.v1.users.routes import router as users_router
 from app.api.v1.markets.routes import router as markets_router
 from app.api.v1.orders.routes import router as orders_router
 from app.api.v1.accounts.routes import router as accounts_router
+from app.api.v1.stark.routes import router as stark_router
 from app.services.database import check_supabase_connection
 
 # Configure logging
@@ -56,6 +57,7 @@ app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(markets_router, prefix="/api/v1/markets", tags=["markets"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["orders"])
 app.include_router(accounts_router, prefix="/api/v1/account", tags=["accounts"])
+app.include_router(stark_router, prefix="/api/v1/stark", tags=["stark-trading"])
 
 @app.on_event("startup")
 async def startup_event():
