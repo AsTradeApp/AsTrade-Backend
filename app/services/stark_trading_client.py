@@ -7,6 +7,20 @@ import os
 import sys
 from pathlib import Path
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    # Load .env file from the project root
+    project_root = Path(__file__).parent.parent.parent.absolute()
+    env_file = project_root / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+        print(f"✅ Loaded environment from {env_file}")
+    else:
+        print(f"⚠️  Environment file {env_file} not found")
+except ImportError:
+    print("⚠️  python-dotenv not installed, environment variables must be set manually")
+
 # Add the project root directory to Python path
 project_root = str(Path(__file__).parent.parent.parent.absolute())
 sys.path.insert(0, project_root)
@@ -24,11 +38,6 @@ class StarkTradingClientError(Exception):
     pass
 
 
-class ConfigurationError(Exception):
-    """Custom exception for configuration errors"""
-    pass
-
-
 class StarkTradingService:
     """Service for Stark perpetual trading operations"""
     
@@ -37,46 +46,49 @@ class StarkTradingService:
         self.client: Optional[BlockingTradingClient] = None
         self.account: Optional[StarkPerpetualAccount] = None
         
-        # Store configuration without validation (lazy loading)
+        # Load configuration from environment variables with proper error handling
         self.api_key = os.getenv("EXTENDED_API_KEY")
-        self.public_key = os.getenv("EXTENDED_SECRET_PUBLIC_KE")
+        self.public_key = os.getenv("EXTENDED_SECRET_PUBLIC_KEY") 
         self.private_key = os.getenv("EXTENDED_STARK_PRIVATE_KEY")
-        self.vault = os.getenv("EXTENDED_VAULT_ID")  # Store as string initially
         
-        logger.info("Stark trading service initialized (not connected)")
-
-    def validate_configuration(self):
-        """Validate all required configuration is present"""
-        required_env_vars = {
-            "EXTENDED_API_KEY": (self.api_key, "API key"),
-            "EXTENDED_SECRET_PUBLIC_KE": (self.public_key, "Public key"),
-            "EXTENDED_STARK_PRIVATE_KEY": (self.private_key, "Private key"),
-            "EXTENDED_VAULT_ID": (self.vault, "Vault ID")
-        }
+        # Handle vault ID with proper error checking
+        vault_id = os.getenv("EXTENDED_VAULT_ID")
+        if vault_id is None:
+            logger.warning("EXTENDED_VAULT_ID environment variable not set, using default value 0")
+            self.vault = 0
+        else:
+            try:
+                self.vault = int(vault_id)
+            except ValueError:
+                logger.error("Invalid EXTENDED_VAULT_ID value, must be an integer", vault_id=vault_id)
+                raise StarkTradingClientError(f"Invalid EXTENDED_VAULT_ID value: {vault_id}")
         
+        # Validate that all required environment variables are set
+        self._validate_config()
+    
+    def _validate_config(self) -> None:
+        """Validate that all required environment variables are set"""
         missing_vars = []
-        for var_name, (value, description) in required_env_vars.items():
-            if value is None:
-                missing_vars.append(f"{description} ({var_name})")
         
+        if not self.api_key:
+            missing_vars.append("EXTENDED_API_KEY")
+        if not self.public_key:
+            missing_vars.append("EXTENDED_SECRET_PUBLIC_KEY")
+        if not self.private_key:
+            missing_vars.append("EXTENDED_STARK_PRIVATE_KEY")
+            
         if missing_vars:
-            error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
-            logger.error(error_msg)
-            raise ConfigurationError(error_msg)
+            logger.error("Missing required environment variables", missing_vars=missing_vars)
+            raise StarkTradingClientError(
+                f"Missing required environment variables: {', '.join(missing_vars)}. "
+                "Please set these variables before using the Stark trading service."
+            )
         
-        try:
-            self.vault = int(self.vault)
-        except (TypeError, ValueError) as e:
-            error_msg = f"Invalid EXTENDED_VAULT_ID value: must be an integer"
-            logger.error(error_msg)
-            raise ConfigurationError(error_msg) from e
+        logger.info("Stark trading service configuration validated successfully", vault=self.vault)
     
     async def initialize_client(self) -> BlockingTradingClient:
         """Initialize and return the trading client"""
         try:
-            # Validate configuration before proceeding
-            self.validate_configuration()
-            
             # Create Stark account
             self.account = StarkPerpetualAccount(
                 vault=self.vault,
