@@ -89,4 +89,13 @@ class TWAPOrderParams(BaseModel):
     """TWAP order parameters model"""
     duration: int = Field(..., description="Total duration in seconds (60-86400)")
     interval: int = Field(..., description="Interval between slices in seconds (10-3600)")
-    randomize: bool = Field(default=True, description="Randomize slice timing") 
+    randomize: bool = Field(default=True, description="Randomize slice timing")
+
+
+class ExtendedTestOrderRequest(BaseModel):
+    """Extended trading client test order request"""
+    market_name: str = Field(default="BTC-USD", description="Market symbol (e.g., BTC-USD)")
+    amount: Decimal = Field(default=Decimal("0.001"), description="Order amount")
+    side: OrderSide = Field(default=OrderSide.BUY, description="Order side (buy/sell)")
+    post_only: bool = Field(default=True, description="Post only flag")
+    auto_cancel: bool = Field(default=True, description="Automatically cancel order after placement") 
