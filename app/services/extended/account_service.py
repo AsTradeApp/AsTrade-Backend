@@ -11,6 +11,12 @@ import httpx
 
 from app.services.extended.stark_crypto import generate_stark_credentials
 from app.config.extended_config import extended_config
+from app.services.extended.starknet_adapter import (
+    StarknetExtendedAdapter,
+    StarknetWalletData,
+    ExtendedAccountResult,
+    create_starknet_adapter
+)
 
 
 logger = structlog.get_logger()
@@ -24,6 +30,103 @@ class ExtendedAccountService:
         self.onboarding_url = extended_config.onboarding_url
         self.signing_domain = extended_config.signing_domain
         
+    async def create_extended_account_with_starknet_wallet(
+        self,
+        user: User,
+        starknet_wallet: Dict[str, Any],
+        environment: str = "testnet"
+    ) -> Dict[str, Any]:
+        """
+        Create a new Extended Exchange account using Starknet wallet from Cavos
+        
+        Args:
+            user: AsTrade user object
+            starknet_wallet: Starknet wallet data from Cavos invisible wallet
+                Expected format: {
+                    "private_key": "0x...",
+                    "public_key": "0x...", 
+                    "address": "0x...",
+                    "vault_id": 123456 (optional)
+                }
+            environment: "testnet" or "mainnet"
+            
+        Returns:
+            Dictionary with account creation result
+        """
+        try:
+            logger.info(
+                "Creating Extended account with Starknet wallet",
+                user_id=user.id,
+                wallet_address=starknet_wallet.get("address"),
+                environment=environment
+            )
+            
+            # Validate wallet data
+            required_fields = ["private_key", "public_key", "address"]
+            for field in required_fields:
+                if field not in starknet_wallet:
+                    raise ValueError(f"Missing required field: {field}")
+            
+            # Create wallet data object
+            wallet_data = StarknetWalletData(
+                private_key=starknet_wallet["private_key"],
+                public_key=starknet_wallet["public_key"],
+                address=starknet_wallet["address"],
+                vault_id=starknet_wallet.get("vault_id")
+            )
+            
+            # Create adapter for the specified environment
+            adapter = create_starknet_adapter(environment)
+            
+            # Perform onboarding
+            result = await adapter.onboard_with_starknet_keys(
+                wallet_data=wallet_data,
+                user_id=user.id,
+                referral_code=None  # Could be added for referral system
+            )
+            
+            if result.success:
+                logger.info(
+                    "Extended account creation successful",
+                    user_id=user.id,
+                    account_id=result.account_id,
+                    environment=environment
+                )
+                
+                return {
+                    "success": True,
+                    "extended_account_id": result.account_id,
+                    "api_key": result.api_key,
+                    "api_secret": result.api_secret,
+                    "stark_private_key": result.stark_private_key,
+                    "stark_public_key": result.stark_public_key,
+                    "environment": environment,
+                    "wallet_address": wallet_data.address
+                }
+            else:
+                logger.error(
+                    "Extended account creation failed",
+                    user_id=user.id,
+                    error=result.error,
+                    environment=environment
+                )
+                return {
+                    "success": False,
+                    "error": result.error or "Unknown error during account creation"
+                }
+            
+        except Exception as e:
+            logger.error(
+                "Failed to create Extended account with Starknet wallet",
+                user_id=user.id,
+                error=str(e),
+                environment=environment
+            )
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
     async def create_extended_account(
         self,
         user: Dict[str, Any],
@@ -31,7 +134,8 @@ class ExtendedAccountService:
         environment: str = "testnet"
     ) -> Dict[str, Any]:
         """
-        Create a new Extended Exchange account for AsTrade user
+        Legacy method - Create a new Extended Exchange account (deprecated)
+        Use create_extended_account_with_starknet_wallet instead
         
         Args:
             user: AsTrade user dictionary
@@ -41,71 +145,25 @@ class ExtendedAccountService:
         Returns:
             Dictionary with account creation result
         """
-        try:
-            # Generate Stark credentials
-            stark_credentials = generate_stark_credentials()
-            private_key = stark_credentials['private_key']
-            public_key = stark_credentials['public_key']
-            
-            logger.info(
-                "Generated Stark credentials for user",
-                user_id=user['id'],
-                public_key=public_key[:16] + "...",  # Log only part for security
-                environment=environment
-            )
-            
-            # Prepare account creation request
-            account_data = {
-                "wallet_address": wallet_address,
-                "stark_public_key": public_key,
-                "environment": environment,
-                "referral_code": None  # Could be added for referral system
-            }
-            
-            # For now, we'll simulate account creation since Extended requires
-            # specific onboarding flow through their UI or SDK
-            # In production, this would call Extended's onboarding API
-            
-            if environment == "testnet":
-                # Simulate successful account creation
-                extended_account_id = f"extended_testnet_{user['id'][:8]}"
-                api_key = f"api_key_testnet_{int(time.time())}"
-                api_secret = f"api_secret_testnet_{int(time.time())}"
-                
-                logger.info(
-                    "Simulated Extended account creation for testnet",
-                    user_id=user['id'],
-                    extended_account_id=extended_account_id,
-                    environment=environment
-                )
-            else:
-                # For mainnet, we would need real API integration
-                extended_account_id = f"extended_mainnet_{user['id'][:8]}"
-                api_key = f"api_key_mainnet_{int(time.time())}"
-                api_secret = f"api_secret_mainnet_{int(time.time())}"
-            
-            return {
-                "success": True,
-                "extended_account_id": extended_account_id,
-                "api_key": api_key,
-                "api_secret": api_secret,
-                "stark_private_key": private_key,
-                "stark_public_key": public_key,
-                "environment": environment,
-                "wallet_address": wallet_address
-            }
-            
-        except Exception as e:
-            logger.error(
-                "Failed to create Extended account",
-                user_id=user['id'],
-                error=str(e),
-                environment=environment
-            )
-            return {
-                "success": False,
-                "error": str(e)
-            }
+        logger.warning(
+            "Using deprecated create_extended_account method",
+            user_id=user.id,
+            environment=environment
+        )
+        
+        # Generate Stark credentials for legacy support
+        stark_credentials = generate_stark_credentials()
+        
+        # Create a mock wallet data structure
+        starknet_wallet = {
+            "private_key": stark_credentials['private_key'],
+            "public_key": stark_credentials['public_key'],
+            "address": wallet_address
+        }
+        
+        return await self.create_extended_account_with_starknet_wallet(
+            user, starknet_wallet, environment
+        )
     
     async def store_extended_credentials(
         self,
@@ -171,30 +229,35 @@ class ExtendedAccountService:
             )
             raise
     
-    async def setup_user_for_extended(
+    async def setup_user_for_extended_with_starknet(
         self,
-        db: Client,
-        user: Dict[str, Any],
-        wallet_address: str
+        db: Session,
+        user: User,
+        starknet_wallet: Dict[str, Any],
+        environment: str = "testnet"
     ) -> Tuple[bool, str]:
         """
-        Complete setup process for Extended Exchange integration
+        Complete setup process for Extended Exchange integration using Starknet wallet
         
         Args:
+<<<<<<< HEAD
             db: Supabase client
             user: AsTrade user dictionary
             wallet_address: StarkNet wallet address
+=======
+            db: Database session
+            user: AsTrade user
+            starknet_wallet: Starknet wallet data from Cavos
+            environment: Environment to use ("testnet" or "mainnet")
+>>>>>>> 5730961 (Add extended account service)
             
         Returns:
             Tuple of (success, message)
         """
         try:
-            # Determine environment based on user level or default to testnet
-            environment = "testnet"  # Start with testnet for all users
-            
-            # Create Extended account
-            account_result = await self.create_extended_account(
-                user, wallet_address, environment
+            # Create Extended account with Starknet wallet
+            account_result = await self.create_extended_account_with_starknet_wallet(
+                user, starknet_wallet, environment
             )
             
             if not account_result['success']:
@@ -206,21 +269,69 @@ class ExtendedAccountService:
             )
             
             logger.info(
-                "Successfully set up user for Extended Exchange",
-                user_id=user['id'],
+                "Successfully set up user for Extended Exchange with Starknet wallet",
+                user_id=user.id,
                 environment=environment,
                 has_credentials=credentials is not None
             )
             
-            return True, "Extended Exchange account created successfully"
+            return True, "Extended Exchange account created successfully with Starknet wallet"
             
         except Exception as e:
             logger.error(
-                "Failed to setup user for Extended",
-                user_id=user['id'],
+                "Failed to setup user for Extended with Starknet wallet",
+                user_id=user.id,
                 error=str(e)
             )
             return False, f"Setup failed: {str(e)}"
+    
+    async def setup_user_for_extended(
+        self,
+        db: Session,
+        user: User,
+        wallet_address: str
+    ) -> Tuple[bool, str]:
+        """
+        Legacy method - Complete setup process for Extended Exchange integration
+        Use setup_user_for_extended_with_starknet instead
+        
+        Args:
+            db: Database session
+            user: AsTrade user
+            wallet_address: StarkNet wallet address
+            
+        Returns:
+            Tuple of (success, message)
+        """
+        logger.warning(
+            "Using deprecated setup_user_for_extended method",
+            user_id=user.id
+        )
+        
+        # Determine environment based on user level or default to testnet
+        environment = "testnet"  # Start with testnet for all users
+        
+        # Create Extended account using legacy method
+        account_result = await self.create_extended_account(
+            user, wallet_address, environment
+        )
+        
+        if not account_result['success']:
+            return False, f"Failed to create Extended account: {account_result['error']}"
+        
+        # Store credentials in database
+        credentials = await self.store_extended_credentials(
+            db, user.id, account_result
+        )
+        
+        logger.info(
+            "Successfully set up user for Extended Exchange (legacy)",
+            user_id=user.id,
+            environment=environment,
+            has_credentials=credentials is not None
+        )
+        
+        return True, "Extended Exchange account created successfully"
     
     async def get_user_credentials(
         self,
