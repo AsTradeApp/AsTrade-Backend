@@ -95,7 +95,7 @@ class StarknetExtendedAdapter:
     
     def __init__(self, config: ExtendedEndpointConfig):
         self.config = config
-        self.timeout = aiohttp.Timeout(30.0)
+        self.timeout = aiohttp.ClientTimeout(total=30.0)
         self._validate_config()
         
     def _validate_config(self):

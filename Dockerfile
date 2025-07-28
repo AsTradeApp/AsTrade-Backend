@@ -1,5 +1,5 @@
-# Use Python 3.9 slim image
-FROM python:3.9-slim
+# Lightweight Docker image - NO RUST COMPILATION
+FROM python:3.10-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -9,9 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies
+# Install only runtime dependencies (NO build tools)
 RUN apt-get update && apt-get install -y \
-    build-essential \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -19,6 +18,9 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Note: Using fallback implementations in signature_service.py instead of Rust wrapper
+# The Rust wrapper requires compilation for the target platform
 
 # Verify supabase installation
 RUN python -c "from supabase import create_client, Client; print('Supabase package installed successfully')"

@@ -409,7 +409,7 @@ async def setup_extended_for_existing_user(db: Client, user_id: str) -> Tuple[bo
                     old_environment=existing_creds.get('environment')
                 )
         
-        # Set up Extended Exchange
+        # Set up Extended Exchange with user dict
         success, message = await extended_account_service.setup_user_for_extended(
             db, user, wallet_address
         )

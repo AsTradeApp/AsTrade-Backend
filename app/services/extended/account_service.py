@@ -149,7 +149,7 @@ class ExtendedAccountService:
         """
         logger.warning(
             "Using deprecated create_extended_account method",
-            user_id=user.id,
+            user_id=user['id'],
             environment=environment
         )
         
@@ -163,8 +163,17 @@ class ExtendedAccountService:
             "address": wallet_address
         }
         
+        # Convert dict back to User object for the new method
+        from app.models.database import User
+        user_obj = User(
+            id=user['id'],
+            email=user.get('email'),
+            provider=user.get('provider'),
+            wallet_address=user.get('wallet_address')
+        )
+        
         return await self.create_extended_account_with_starknet_wallet(
-            user, starknet_wallet, environment
+            user_obj, starknet_wallet, environment
         )
     
     async def store_extended_credentials(
@@ -261,7 +270,7 @@ class ExtendedAccountService:
             
             # Store credentials in database
             credentials = await self.store_extended_credentials(
-                db, user['id'], account_result
+                db, user.id, account_result
             )
             
             logger.info(
@@ -284,7 +293,7 @@ class ExtendedAccountService:
     async def setup_user_for_extended(
         self,
         db: Session,
-        user: User,
+        user: Dict[str, Any],
         wallet_address: str
     ) -> Tuple[bool, str]:
         """
@@ -293,7 +302,7 @@ class ExtendedAccountService:
         
         Args:
             db: Database session
-            user: AsTrade user
+            user: AsTrade user dict
             wallet_address: StarkNet wallet address
             
         Returns:
@@ -301,15 +310,21 @@ class ExtendedAccountService:
         """
         logger.warning(
             "Using deprecated setup_user_for_extended method",
-            user_id=user.id
+            user_id=user.get('id')
         )
         
         # Determine environment based on user level or default to testnet
         environment = "testnet"  # Start with testnet for all users
         
         # Create Extended account using legacy method
+        user_dict = {
+            "id": user.get('id'),
+            "email": user.get('email'),
+            "provider": user.get('provider'),
+            "wallet_address": user.get('wallet_address')
+        }
         account_result = await self.create_extended_account(
-            user, wallet_address, environment
+            user_dict, wallet_address, environment
         )
         
         if not account_result['success']:
@@ -317,12 +332,12 @@ class ExtendedAccountService:
         
         # Store credentials in database
         credentials = await self.store_extended_credentials(
-            db, user.id, account_result
+            db, user.get('id'), account_result
         )
         
         logger.info(
             "Successfully set up user for Extended Exchange (legacy)",
-            user_id=user.id,
+            user_id=user.get('id'),
             environment=environment,
             has_credentials=credentials is not None
         )

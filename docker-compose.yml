@@ -34,24 +34,7 @@ services:
       start_period: 40s
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB:-astrade}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+
 
   # Redis Cache
   redis:
@@ -84,8 +67,6 @@ services:
       - production
 
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
 

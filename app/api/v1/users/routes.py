@@ -15,6 +15,7 @@ from app.services.database import get_db
 from app.api.v1.users.service import (
     create_user,
     get_user_by_id,
+    get_user_by_cavos_id,
     verify_user_extended_setup,
     setup_extended_for_existing_user
 )
@@ -156,8 +157,6 @@ async def get_user_by_cavos_id_route(
         User information if found
     """
     try:
-        from app.api.v1.users.service import get_user_by_cavos_id
-        
         user = await get_user_by_cavos_id(db, cavos_user_id)
         
         if not user:
@@ -262,7 +261,7 @@ async def check_extended_status_route(
             "extended_configured": is_setup,
             "status_message": status_message,
             "connection_verified": is_setup,
-            "environment": credentials.environment if credentials else None,
+            "environment": credentials.get('environment') if credentials else None,
             "features": {
                 "trading": is_setup,
                 "balance_check": is_setup,
