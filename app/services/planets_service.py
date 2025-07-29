@@ -52,6 +52,11 @@ class PlanetsService:
                     
                     quizzes_with_progress = []
                     for quiz_data in quizzes_response.data:
+                        # Calculate total_questions if not present
+                        if 'total_questions' not in quiz_data or quiz_data['total_questions'] is None:
+                            questions_count = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_data['id']).execute()
+                            quiz_data['total_questions'] = questions_count.count
+                        
                         quiz = Quiz(**quiz_data)
                         quiz_progress = quiz_progress_dict.get(quiz.id)
                         
@@ -74,7 +79,24 @@ class PlanetsService:
             else:
                 # No user context, just return planets
                 for planet_data in planets_response.data:
-                    planet_with_progress = PlanetWithProgress(**planet_data, quizzes=[])
+                    # Get quizzes for this planet
+                    quizzes_response = self.client.table('quizzes').select('*').eq('planet_id', planet_data['id']).order('order_index').execute()
+                    
+                    quizzes_with_progress = []
+                    for quiz_data in quizzes_response.data:
+                        # Calculate total_questions if not present
+                        if 'total_questions' not in quiz_data or quiz_data['total_questions'] is None:
+                            questions_count = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_data['id']).execute()
+                            quiz_data['total_questions'] = questions_count.count
+                        
+                        quiz_with_progress = QuizWithProgress(
+                            **quiz_data,
+                            user_progress=None,
+                            questions=[]
+                        )
+                        quizzes_with_progress.append(quiz_with_progress)
+                    
+                    planet_with_progress = PlanetWithProgress(**planet_data, quizzes=quizzes_with_progress)
                     planets_with_progress.append(planet_with_progress)
             
             return PlanetsListResponse(
@@ -111,6 +133,11 @@ class PlanetsService:
             
             quizzes_with_progress = []
             for quiz_data in quizzes_response.data:
+                # Calculate total_questions if not present
+                if 'total_questions' not in quiz_data or quiz_data['total_questions'] is None:
+                    questions_count = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_data['id']).execute()
+                    quiz_data['total_questions'] = questions_count.count
+                
                 quiz_progress = quiz_progress_dict.get(quiz_data['id'])
                 
                 quiz_with_progress = QuizWithProgress(

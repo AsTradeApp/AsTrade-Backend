@@ -23,10 +23,15 @@ class PlanetBase(BaseModel):
     is_active: bool = True
 
 
-class Planet(PlanetBase):
+class Planet(BaseModel):
     """Planet model with database fields"""
     id: int
-    total_quizzes: int = 0
+    name: str = Field(..., max_length=100)
+    description: Optional[str] = None
+    color: str = Field(..., pattern=r"^#[0-9A-Fa-f]{6}$")
+    order_index: int = Field(..., ge=1)
+    total_quizzes: Optional[int] = 0
+    is_active: Optional[bool] = True
     created_at: datetime
     updated_at: datetime
 
@@ -51,10 +56,18 @@ class QuizBase(BaseModel):
     is_active: bool = True
 
 
-class Quiz(QuizBase):
+class Quiz(BaseModel):
     """Quiz model with database fields"""
     id: int
-    total_questions: int = 0
+    planet_id: int
+    name: str = Field(..., max_length=255)
+    title: str = Field(..., max_length=255)
+    slug: str = Field(..., max_length=255)
+    description: Optional[str] = None
+    quiz_code: str = Field(..., max_length=10)
+    order_index: int = Field(..., ge=1)
+    xp_reward: int = 50
+    total_questions: Optional[int] = 0  # Optional field, may not exist in DB
     created_at: datetime
     updated_at: datetime
 
