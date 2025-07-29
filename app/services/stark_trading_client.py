@@ -181,8 +181,26 @@ class StarkTradingService:
             # Ensure proper precision for Stark API
             # Round price to integer for compatibility
             formatted_price = Decimal(str(int(price)))
-            # Keep amount as is but ensure it's properly formatted
-            formatted_amount = amount_of_synthetic.quantize(Decimal('0.00001'))
+            
+            # Market-specific precision for amount
+            precision_map = {
+                'BTC-USD': Decimal('0.0001'),  # 4 decimal places
+                'ETH-USD': Decimal('0.01'),    # 2 decimal places
+                'STRK-USD': Decimal('0.1'),    # 1 decimal place
+                'MATIC-USD': Decimal('1'),     # 0 decimal places
+            }
+            
+            # Get precision for the market, default to BTC precision
+            precision = precision_map.get(market_name, Decimal('0.0001'))
+            formatted_amount = amount_of_synthetic.quantize(precision)
+            
+            logger.info(
+                "Formatted order amounts",
+                original_amount=amount_of_synthetic,
+                formatted_amount=formatted_amount,
+                market=market_name,
+                precision=precision
+            )
             
             # Convert side string to OrderSide enum
             order_side = OrderSide.BUY if side.upper() == "BUY" else OrderSide.SELL
