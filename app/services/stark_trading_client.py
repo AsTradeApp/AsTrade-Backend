@@ -6,6 +6,7 @@ import structlog
 import os
 import sys
 from pathlib import Path
+import threading
 
 # Load environment variables from .env file
 try:
@@ -45,6 +46,8 @@ class StarkTradingService:
         """Initialize the Stark trading service"""
         self.client: Optional[BlockingTradingClient] = None
         self.account: Optional[StarkPerpetualAccount] = None
+        self._initialization_lock = threading.Lock()
+        self._is_initializing = False
         
         # Load configuration from environment variables with proper error handling
         self.api_key = os.getenv("EXTENDED_API_KEY")
@@ -88,27 +91,52 @@ class StarkTradingService:
     
     async def initialize_client(self) -> BlockingTradingClient:
         """Initialize and return the trading client"""
-        try:
-            # Create Stark account
-            self.account = StarkPerpetualAccount(
-                vault=self.vault,
-                private_key=self.private_key,
-                public_key=self.public_key,
-                api_key=self.api_key,
-            )
-            
-            # Create trading client
-            self.client = BlockingTradingClient(
-                endpoint_config=STARKNET_TESTNET_CONFIG,
-                account=self.account
-            )
-            
-            logger.info("Stark trading client initialized successfully", vault=self.vault)
+        # Check if already initialized
+        if self.client is not None:
             return self.client
             
-        except Exception as e:
-            logger.error("Failed to initialize Stark trading client", error=str(e))
-            raise StarkTradingClientError(f"Failed to initialize trading client: {str(e)}")
+        # Use lock to prevent concurrent initialization
+        with self._initialization_lock:
+            # Double-check after acquiring lock
+            if self.client is not None:
+                return self.client
+                
+            if self._is_initializing:
+                # Another thread is initializing, wait a bit and check again
+                import time
+                time.sleep(0.1)
+                if self.client is not None:
+                    return self.client
+                else:
+                    raise StarkTradingClientError("Client initialization in progress, please try again")
+            
+            try:
+                self._is_initializing = True
+                logger.info("Initializing Stark trading client", vault=self.vault)
+                
+                # Create Stark account
+                self.account = StarkPerpetualAccount(
+                    vault=self.vault,
+                    private_key=self.private_key,
+                    public_key=self.public_key,
+                    api_key=self.api_key,
+                )
+                
+                # Create trading client
+                self.client = BlockingTradingClient(
+                    endpoint_config=STARKNET_TESTNET_CONFIG,
+                    account=self.account
+                )
+                
+                logger.info("Stark trading client initialized successfully", vault=self.vault)
+                return self.client
+                
+            except Exception as e:
+                logger.error("Failed to initialize Stark trading client", error=str(e))
+                self.client = None  # Reset on failure
+                raise StarkTradingClientError(f"Failed to initialize trading client: {str(e)}")
+            finally:
+                self._is_initializing = False
     
     async def create_order(
         self,
@@ -135,24 +163,40 @@ class StarkTradingService:
             StarkTradingClientError: If order creation fails
         """
         try:
+            # Ensure client is initialized
             if not self.client:
                 await self.initialize_client()
+            
+            if not self.client:
+                raise StarkTradingClientError("Failed to initialize trading client")
+            
+            # Validate and format inputs
+            if amount_of_synthetic <= 0:
+                raise StarkTradingClientError("Amount must be greater than 0")
+            if price <= 0:
+                raise StarkTradingClientError("Price must be greater than 0")
+            
+            # Ensure proper precision for Stark API
+            # Round price to integer for compatibility
+            formatted_price = Decimal(str(int(price)))
+            # Keep amount as is but ensure it's properly formatted
+            formatted_amount = amount_of_synthetic.quantize(Decimal('0.00001'))
             
             # Convert side string to OrderSide enum
             order_side = OrderSide.BUY if side.upper() == "BUY" else OrderSide.SELL
             
             logger.info(
                 "Creating Stark order",
-                amount=amount_of_synthetic,
-                price=price,
+                amount=formatted_amount,
+                price=formatted_price,
                 market=market_name,
                 side=side,
                 post_only=post_only
             )
             
             placed_order = await self.client.create_and_place_order(
-                amount_of_synthetic=amount_of_synthetic,
-                price=price,
+                amount_of_synthetic=formatted_amount,
+                price=formatted_price,
                 market_name=market_name,
                 side=order_side,
                 post_only=post_only,
@@ -164,8 +208,8 @@ class StarkTradingService:
                 "external_id": placed_order.external_id,
                 "market_name": market_name,
                 "side": side,
-                "amount": str(amount_of_synthetic),
-                "price": str(price),
+                "amount": str(formatted_amount),
+                "price": str(formatted_price),
                 "post_only": post_only,
                 "status": "placed",
                 "order_data": placed_order.__dict__ if hasattr(placed_order, '__dict__') else str(placed_order)
@@ -189,8 +233,12 @@ class StarkTradingService:
             StarkTradingClientError: If order cancellation fails
         """
         try:
+            # Ensure client is initialized
             if not self.client:
                 await self.initialize_client()
+            
+            if not self.client:
+                raise StarkTradingClientError("Failed to initialize trading client")
             
             logger.info("Cancelling Stark order", order_id=order_external_id)
             
