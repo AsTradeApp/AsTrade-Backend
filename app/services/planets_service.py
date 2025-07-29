@@ -338,7 +338,7 @@ class PlanetsService:
             planet_progress_dict = {p['planet_id']: p for p in planet_progress_response.data}
             
             # Get total quiz counts per planet
-            quiz_counts_response = self.client.table('quizzes').select('planet_id').eq('is_active', True).execute()
+            quiz_counts_response = self.client.table('quizzes').select('planet_id').execute()
             quiz_counts = {}
             for quiz in quiz_counts_response.data:
                 planet_id = quiz['planet_id']

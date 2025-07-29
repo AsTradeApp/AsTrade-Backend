@@ -24,32 +24,93 @@ async def create_user(db: Client, user_data: UserCreateRequest) -> UserCreateRes
         UserCreateResponse with user details
     """
     try:
-        # For now, use the existing user ID from auth.users
-        # In production, you would create a new user in auth.users first
-        user_id = "fb16ec78-ff70-4895-9ace-92a1d8202fdb"  # Existing user ID
+        # Step 1: Check if user already exists by cavos_user_id
+        existing_user = await get_user_by_cavos_id(db, user_data.cavos_user_id)
+        if existing_user:
+            logger.info(
+                "✅ User already exists with this Cavos ID - returning existing user without updates",
+                cavos_user_id=user_data.cavos_user_id,
+                user_id=existing_user['id']
+            )
+            return UserCreateResponse.create_success(
+                user_id=existing_user['id'],
+                created_at=datetime.utcnow()
+            )
         
+        # Step 1.5: Log that we're creating a completely new user
         logger.info(
-            "Using existing user ID for testing",
-            email=user_data.email,
-            provider=user_data.provider,
+            "🆕 No existing user found - creating brand new user",
             cavos_user_id=user_data.cavos_user_id,
-            user_id=user_id
+            email=user_data.email
         )
         
-        # Create user profile for gamification
+        # Step 2: Create user in Supabase auth system
+        logger.info(
+            "Creating new user in Supabase auth system",
+            email=user_data.email,
+            provider=user_data.provider,
+            cavos_user_id=user_data.cavos_user_id
+        )
+        
+        try:
+            # Use Supabase admin auth to create user
+            logger.info("Attempting to create user via Supabase admin auth...")
+            auth_response = db.auth.admin.create_user({
+                "email": user_data.email,
+                "password": str(uuid.uuid4()),  # Temporary password
+                "email_confirm": True,  # Auto-confirm since OAuth verified
+                "user_metadata": {
+                    "provider": user_data.provider,
+                    "cavos_user_id": user_data.cavos_user_id,
+                    "wallet_address": user_data.wallet_address,
+                    "created_via": "astrade_oauth"
+                }
+            })
+            
+            if not auth_response.user:
+                raise Exception("Supabase auth user creation returned no user")
+            
+            user_id = auth_response.user.id
+            
+            logger.info(
+                "✅ Successfully created user in Supabase auth system",
+                user_id=user_id,
+                email=user_data.email,
+                cavos_user_id=user_data.cavos_user_id
+            )
+            
+        except Exception as auth_error:
+            # Fallback: generate a unique UUID for this user
+            logger.warning(
+                "Failed to create user in Supabase auth, generating unique UUID",
+                error=str(auth_error),
+                error_type=type(auth_error).__name__,
+                cavos_user_id=user_data.cavos_user_id
+            )
+            
+            # Generate a unique UUID for this user - each cavos_user_id gets its own UUID
+            user_id = str(uuid.uuid4())
+            logger.info(f"Generated unique UUID for user: {user_id}")
+        
+        logger.info(
+            "Creating user profile and records",
+            user_id=user_id,
+            email=user_data.email,
+            provider=user_data.provider,
+            cavos_user_id=user_data.cavos_user_id
+        )
+        
+        # Step 3: Create user profile for gamification (with cavos_user_id for lookup)
         await ensure_user_profile(db, user_id, user_data)
         
-        # Create wallet record
-        wallet = await ensure_user_wallet(db, user_id, user_data.wallet_address)
+        # Step 4: Create wallet record  
+        await ensure_user_wallet(db, user_id, user_data.wallet_address)
         
-        # Store Cavos ID mapping (temporary solution using profile)
-        await store_cavos_mapping(db, user_id, user_data)
-        
-        # Ensure Extended credentials are created
+        # Step 5: Ensure Extended credentials are created
         await ensure_extended_credentials(db, user_id, user_data.wallet_address)
         
         logger.info(
-            "Successfully created user profile, wallet, and Extended credentials",
+            "Successfully created complete user profile",
             user_id=user_id,
             email=user_data.email,
             cavos_user_id=user_data.cavos_user_id
@@ -75,32 +136,24 @@ async def create_user(db: Client, user_data: UserCreateRequest) -> UserCreateRes
 
 async def ensure_user_profile(db: Client, user_id: str, user_data: UserCreateRequest) -> dict:
     """
-    Ensure user has a profile record, create if not exists
+    Create a new user profile record - always create, never update existing
     
     Args:
         db: Supabase client
-        user_id: User ID from auth.users
+        user_id: Generated UUID for this user
         user_data: User creation data
         
     Returns:
         Profile record dictionary
     """
     try:
-        # Check if profile exists
-        existing_profile = db.table('astrade_user_profiles').select("*").eq('user_id', user_id).execute()
-        
-        if existing_profile.data:
-            profile = existing_profile.data[0]
-            logger.info(
-                "User profile already exists",
-                user_id=user_id
-            )
-            return profile
-        
-        # Create new profile
+        # Create new profile for this user (we already checked no user exists with this cavos_user_id)
+        # Store cavos_user_id in display_name for easy lookup
+        email_part = user_data.email.split('@')[0] if user_data.email else "user"
+        # Store cavos_user_id in display_name for lookup (format: email_cavosid)
         profile_data = {
             "user_id": user_id,
-            "display_name": f"{user_data.email.split('@')[0]}_{user_data.cavos_user_id}",  # Include cavos_user_id
+            "display_name": f"{email_part}_{user_data.cavos_user_id}",  # Store cavos_user_id for lookup
             "level": 1,
             "experience": 0,
             "total_trades": 0,
@@ -134,38 +187,19 @@ async def ensure_user_profile(db: Client, user_id: str, user_data: UserCreateReq
 
 async def ensure_user_wallet(db: Client, user_id: str, wallet_address: str) -> dict:
     """
-    Ensure user has a wallet record, create if not exists
+    Create a new wallet record - always create, never update existing
     
     Args:
         db: Supabase client
-        user_id: User ID from auth.users
+        user_id: Generated UUID for this user  
         wallet_address: StarkNet wallet address
         
     Returns:
         Wallet record dictionary
     """
     try:
-        # Check if wallet exists
-        existing_wallet = db.table('user_wallets').select("*").eq('user_id', user_id).execute()
-        
-        if existing_wallet.data:
-            wallet = existing_wallet.data[0]
-            # Update wallet address if different
-            if wallet['address'] != wallet_address:
-                updated_wallet = db.table('user_wallets').update({
-                    'address': wallet_address,
-                    'updated_at': datetime.utcnow().isoformat()
-                }).eq('user_id', user_id).execute()
-                logger.info(
-                    "Updated wallet address for user",
-                    user_id=user_id,
-                    old_address=wallet['address'][:10] + "...",
-                    new_address=wallet_address[:10] + "..."
-                )
-                return updated_wallet.data[0]
-            return wallet
-        
-        # Create new wallet record
+        # Create new wallet record for this user (we already checked no user exists with this cavos_user_id)
+        # Each new user gets their own unique wallet record
         wallet_data = {
             "user_id": user_id,
             "address": wallet_address,
@@ -228,7 +262,7 @@ async def ensure_user_wallet(db: Client, user_id: str, wallet_address: str) -> d
 
 async def get_user_by_id(db: Client, user_id: str) -> Optional[dict]:
     """
-    Get user by ID with Extended credentials check
+    Get user by ID from auth.users table with Extended credentials check
     
     Args:
         db: Supabase client
@@ -238,7 +272,7 @@ async def get_user_by_id(db: Client, user_id: str) -> Optional[dict]:
         User dict or None
     """
     try:
-        # Get user profile (contains email and basic info)
+        # Get user profile (which contains basic info)
         profile_result = db.table('astrade_user_profiles').select("*").eq('user_id', user_id).execute()
         if not profile_result.data:
             logger.error(f"User profile not found for ID: {user_id}")
@@ -246,12 +280,13 @@ async def get_user_by_id(db: Client, user_id: str) -> Optional[dict]:
         
         profile = profile_result.data[0]
         
-        # Extract email and cavos_user_id from display_name (temporary solution)
+        # For now, we'll construct user data from the profile
+        # Extract email and cavos_user_id from display_name (format: email_part_cavos_id)
         display_name = profile.get('display_name', '')
         email = 'user@example.com'  # Default
         cavos_user_id = 'unknown'
         
-        if '_' in display_name:
+        if display_name and isinstance(display_name, str) and '_' in display_name:
             parts = display_name.split('_')
             if len(parts) >= 2:
                 email = f"{parts[0]}@example.com"
@@ -267,6 +302,7 @@ async def get_user_by_id(db: Client, user_id: str) -> Optional[dict]:
                 'cavos_user_id': cavos_user_id
             }
         }
+        logger.info(f"Retrieved user from profile: {user_id}")
         
         # Load wallet information
         wallet_result = db.table('user_wallets').select("*").eq('user_id', user_id).execute()
@@ -294,7 +330,7 @@ async def get_user_by_id(db: Client, user_id: str) -> Optional[dict]:
 
 async def get_user_by_cavos_id(db: Client, cavos_user_id: str) -> Optional[dict]:
     """
-    Get user by Cavos ID
+    Get user by Cavos ID by searching in user profiles display_name
     
     Args:
         db: Supabase client
@@ -304,25 +340,19 @@ async def get_user_by_cavos_id(db: Client, cavos_user_id: str) -> Optional[dict]
         User dict or None
     """
     try:
-        # For now, we'll search in the user profiles table for the specific test user
-        # In production, you would use a proper mapping table
-        if cavos_user_id == "cavos-test-user-123":
-            # Return the test user we know exists
-            return await get_user_by_id(db, "fb16ec78-ff70-4895-9ace-92a1d8202fdb")
+        logger.info(f"Searching for user with Cavos ID: {cavos_user_id}")
         
-        # Also accept the test ID that the frontend is using
-        if cavos_user_id == "test-cavos-user-id":
-            # Return the test user we know exists
-            return await get_user_by_id(db, "fb16ec78-ff70-4895-9ace-92a1d8202fdb")
-        
-        # Search in user profiles for any user with this cavos_user_id
-        # This is a temporary solution until we have the mapping table
+        # Search in user profiles for any user with this cavos_user_id in display_name
         profile_result = db.table('astrade_user_profiles').select("*").execute()
         
+        if not profile_result.data:
+            logger.warning("No user profiles found in database")
+            return None
+        
         for profile in profile_result.data:
-            # Check if this profile belongs to the cavos user
-            # For now, we'll assume the display_name contains the cavos info
-            if cavos_user_id in profile.get('display_name', ''):
+            display_name = profile.get('display_name')
+            if display_name and isinstance(display_name, str) and cavos_user_id in display_name:
+                logger.info(f"Found user with matching Cavos ID: {profile['user_id']}")
                 return await get_user_by_id(db, profile['user_id'])
         
         logger.warning(f"User not found for Cavos ID: {cavos_user_id}")
@@ -425,63 +455,18 @@ async def setup_extended_for_existing_user(db: Client, user_id: str) -> Tuple[bo
         return False, f"Setup failed: {str(e)}"
 
 
-async def store_cavos_mapping(db: Client, user_id: str, user_data: UserCreateRequest) -> None:
-    """
-    Store Cavos ID mapping (temporary solution using profile display_name)
-    
-    Args:
-        db: Supabase client
-        user_id: User ID
-        user_data: User creation data
-    """
-    try:
-        # For now, we'll store the cavos_user_id in the profile display_name
-        # This is a temporary solution until we have a proper mapping table
-        display_name = f"{user_data.email.split('@')[0]}_{user_data.cavos_user_id}"
-        
-        # Update the profile with the cavos mapping
-        db.table('astrade_user_profiles').update({
-            'display_name': display_name,
-            'updated_at': datetime.utcnow().isoformat()
-        }).eq('user_id', user_id).execute()
-        
-        logger.info(
-            "Stored Cavos mapping in profile",
-            user_id=user_id,
-            cavos_user_id=user_data.cavos_user_id,
-            display_name=display_name
-        )
-        
-    except Exception as e:
-        logger.error(
-            "Failed to store Cavos mapping",
-            user_id=user_id,
-            error=str(e)
-        )
-        # Don't fail the entire user creation for this
-
-
 async def ensure_extended_credentials(db: Client, user_id: str, wallet_address: str) -> None:
     """
-    Ensure Extended Exchange credentials exist for the user
+    Create Extended Exchange credentials for the user - always create new
     
     Args:
         db: Supabase client
-        user_id: User ID
+        user_id: Generated UUID for this user
         wallet_address: Wallet address
     """
     try:
-        # Check if credentials already exist
-        existing_creds = db.table('astrade_user_credentials').select("*").eq('user_id', user_id).execute()
-        
-        if existing_creds.data:
-            logger.info(
-                "Extended credentials already exist for user",
-                user_id=user_id
-            )
-            return
-        
-        # Create Extended credentials using the account service
+        # Create new credentials for this user (we already checked no user exists with this cavos_user_id)  
+        # Each new user gets their own unique credentials
         from app.services.extended.account_service import extended_account_service
         
         # Get user from auth.users (simulated for now)
