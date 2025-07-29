@@ -57,6 +57,11 @@ class Settings(BaseSettings):
         env="CORS_ORIGINS"
     )
     
+    # Cloudinary Configuration
+    cloudinary_cloud_name: Optional[str] = Field(default=None, env="CLOUDINARY_CLOUD_NAME")
+    cloudinary_api_key: Optional[str] = Field(default=None, env="CLOUDINARY_API_KEY")
+    cloudinary_api_secret: Optional[str] = Field(default=None, env="CLOUDINARY_API_SECRET")
+    
     @validator('cors_origins', pre=True)
     def parse_cors_origins(cls, v):
         if isinstance(v, str):

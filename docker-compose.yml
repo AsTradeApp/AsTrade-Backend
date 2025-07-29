@@ -25,6 +25,7 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
+      - ./static:/app/static
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

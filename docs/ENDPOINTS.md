@@ -292,6 +292,55 @@ curl "http://localhost:8000/api/v1/users/cavos/google-123"
 
 ---
 
+## 🎁 **ENDPOINTS DE RECOMPENSAS**
+
+### **1. OBTENER ESTADO DE RECOMPENSAS**
+```http
+GET /api/v1/rewards/daily-status
+```
+
+### **2. RECLAMAR RECOMPENSA**
+```http
+POST /api/v1/rewards/claim-daily
+```
+
+### **3. REGISTRAR ACTIVIDAD**
+```http
+POST /api/v1/rewards/record-activity
+```
+
+### **4. OBTENER LOGROS**
+```http
+GET /api/v1/rewards/achievements
+```
+
+### **5. OBTENER INFO DE STREAKS**
+```http
+GET /api/v1/rewards/streak-info
+```
+
+### **6. OBTENER PERFIL COMPLETO**
+```http
+GET /api/v1/rewards/profile
+```
+
+### **7. OBTENER COLECCIÓN DE NFTs**
+```http
+GET /api/v1/rewards/nfts
+```
+
+### **8. OBTENER DETALLE DE NFT**
+```http
+GET /api/v1/rewards/nfts/{nft_id}
+```
+
+### **9. OBTENER ESTADÍSTICAS DE NFTs**
+```http
+GET /api/v1/rewards/nfts/stats
+```
+
+---
+
 ## 🚨 **ESTADO ACTUAL**
 
 ✅ **Funcionando:**
@@ -299,6 +348,7 @@ curl "http://localhost:8000/api/v1/users/cavos/google-123"
 - Búsqueda de usuarios
 - Configuración de Extended
 - Almacenamiento seguro
+- Sistema de recompensas diarias
 
 🟡 **Parcial:**
 - Conexión real con Extended Exchange

@@ -23,4 +23,9 @@ cryptography>=45.0.0
 # starknet-py==0.21.0  # Temporarily commented out - using fallback implementations
 
 # Structured logging
-structlog==23.2.0 
+structlog==23.2.0
+
+# Image upload
+cloudinary==1.36.0
+Pillow==10.1.0
+python-multipart==0.0.6 
