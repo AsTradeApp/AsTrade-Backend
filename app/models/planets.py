@@ -67,7 +67,6 @@ class Quiz(BaseModel):
     quiz_code: str = Field(..., max_length=10)
     order_index: int = Field(..., ge=1)
     xp_reward: int = 50
-    total_questions: Optional[int] = 0  # Optional field, may not exist in DB
     created_at: datetime
     updated_at: datetime
 
@@ -77,6 +76,7 @@ class Quiz(BaseModel):
 
 class QuizWithProgress(Quiz):
     """Quiz model with user progress information"""
+    total_questions: int = 0  # Calculated dynamically
     user_progress: Optional["UserQuizProgress"] = None
     questions: List["Question"] = []
 
@@ -122,11 +122,13 @@ class UserPlanetProgress(BaseModel):
     id: int
     user_id: str
     planet_id: int
-    completed_quizzes: int = 0
-    total_score: int = 0
+    is_unlocked: bool = False
     is_completed: bool = False
-    first_completed_at: Optional[datetime] = None
-    last_activity_at: datetime
+    quizzes_completed: int = 0
+    total_quizzes: int = 2
+    experience_earned: int = 0
+    unlocked_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -139,16 +141,16 @@ class UserQuizProgress(BaseModel):
     id: int
     user_id: str
     quiz_id: int
-    score: int = 0
-    total_questions: int
     is_completed: bool = False
+    best_score: int = 0
+    total_attempts: int = 0
+    first_completed_at: Optional[datetime] = None
+    last_attempt_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
     completion_percentage: float = 0.0
     attempts: int = 0
     first_attempt_at: Optional[datetime] = None
-    last_attempt_at: Optional[datetime] = None
-    best_score: int = 0
-    created_at: datetime
-    updated_at: datetime
 
     class Config:
         from_attributes = True

@@ -52,16 +52,16 @@ class PlanetsService:
                     
                     quizzes_with_progress = []
                     for quiz_data in quizzes_response.data:
-                        # Calculate total_questions if not present
-                        if 'total_questions' not in quiz_data or quiz_data['total_questions'] is None:
-                            questions_count = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_data['id']).execute()
-                            quiz_data['total_questions'] = questions_count.count
-                        
                         quiz = Quiz(**quiz_data)
                         quiz_progress = quiz_progress_dict.get(quiz.id)
                         
+                        # Calculate total_questions separately
+                        questions_count = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_data['id']).execute()
+                        total_questions = questions_count.count
+                        
                         quiz_with_progress = QuizWithProgress(
                             **quiz_data,
+                            total_questions=total_questions,
                             user_progress=UserQuizProgress(**quiz_progress) if quiz_progress else None,
                             questions=[]  # We don't load questions in the list view
                         )
@@ -84,13 +84,13 @@ class PlanetsService:
                     
                     quizzes_with_progress = []
                     for quiz_data in quizzes_response.data:
-                        # Calculate total_questions if not present
-                        if 'total_questions' not in quiz_data or quiz_data['total_questions'] is None:
-                            questions_count = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_data['id']).execute()
-                            quiz_data['total_questions'] = questions_count.count
+                        # Calculate total_questions separately
+                        questions_count = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_data['id']).execute()
+                        total_questions = questions_count.count
                         
                         quiz_with_progress = QuizWithProgress(
                             **quiz_data,
+                            total_questions=total_questions,
                             user_progress=None,
                             questions=[]
                         )
@@ -133,15 +133,15 @@ class PlanetsService:
             
             quizzes_with_progress = []
             for quiz_data in quizzes_response.data:
-                # Calculate total_questions if not present
-                if 'total_questions' not in quiz_data or quiz_data['total_questions'] is None:
-                    questions_count = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_data['id']).execute()
-                    quiz_data['total_questions'] = questions_count.count
+                # Calculate total_questions separately
+                questions_count = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_data['id']).execute()
+                total_questions = questions_count.count
                 
                 quiz_progress = quiz_progress_dict.get(quiz_data['id'])
                 
                 quiz_with_progress = QuizWithProgress(
                     **quiz_data,
+                    total_questions=total_questions,
                     user_progress=UserQuizProgress(**quiz_progress) if quiz_progress else None,
                     questions=[]  # Questions loaded separately when needed
                 )
@@ -215,19 +215,13 @@ class PlanetsService:
             existing_progress = self.client.table('user_quiz_progress').select('*').eq('user_id', user_id).eq('quiz_id', quiz_id).execute()
             
             if existing_progress.data:
-                # Update existing progress
-                self.client.table('user_quiz_progress').update({
-                    'attempts': existing_progress.data[0]['attempts'] + 1,
-                    'last_attempt_at': now.isoformat(),
-                    'updated_at': now.isoformat()
-                }).eq('user_id', user_id).eq('quiz_id', quiz_id).execute()
+                # Use existing progress without updating to avoid trigger issues
                 quiz_attempt_id = existing_progress.data[0]['id']
             else:
                 # Create new progress
                 new_progress = self.client.table('user_quiz_progress').insert({
                     'user_id': user_id,
                     'quiz_id': quiz_id,
-                    'total_questions': len(questions),
                     'attempts': 1,
                     'first_attempt_at': now.isoformat(),
                     'last_attempt_at': now.isoformat()
@@ -298,7 +292,6 @@ class PlanetsService:
             
             # Update quiz progress
             update_data = {
-                'score': correct_count,
                 'is_completed': True,
                 'completion_percentage': completion_percentage,
                 'last_attempt_at': datetime.utcnow().isoformat(),
@@ -306,7 +299,16 @@ class PlanetsService:
                 'updated_at': datetime.utcnow().isoformat()
             }
             
-            self.client.table('user_quiz_progress').update(update_data).eq('user_id', user_id).eq('quiz_id', quiz_id).execute()
+            # Skip problematic database UPDATE due to broken triggers
+            # Quiz completion will be tracked via manual planet progress update
+            logger.info("Skipping user_quiz_progress UPDATE to avoid broken database triggers", 
+                       quiz_id=quiz_id, user_id=user_id, score=correct_count)
+            
+            # Manually update planet progress since triggers are not working
+            try:
+                await self._update_planet_progress_after_quiz(user_id, quiz.planet_id, correct_count)
+            except Exception as e:
+                logger.warning("Failed to update planet progress", error=str(e))
             
             return QuizSubmissionResponse(
                 quiz_id=quiz_id,
@@ -355,21 +357,19 @@ class PlanetsService:
                 total_quizzes = quiz_counts.get(planet_id, 0)
                 
                 if progress:
-                    completed_quizzes = progress['completed_quizzes']
-                    total_score = progress['total_score']
+                    completed_quizzes = progress['quizzes_completed']
+                    experience_earned = progress['experience_earned']
                     is_completed = progress['is_completed']
-                    last_activity = progress.get('last_activity_at')
                     
                     if is_completed:
                         total_planets_completed += 1
                     
                     total_quizzes_completed += completed_quizzes
-                    overall_score += total_score
+                    overall_score += experience_earned
                 else:
                     completed_quizzes = 0
-                    total_score = 0
+                    experience_earned = 0
                     is_completed = False
-                    last_activity = None
                 
                 completion_percentage = (completed_quizzes / total_quizzes * 100) if total_quizzes > 0 else 0
                 
@@ -379,10 +379,10 @@ class PlanetsService:
                     planet_color=planet['color'],
                     completed_quizzes=completed_quizzes,
                     total_quizzes=total_quizzes,
-                    total_score=total_score,
+                    total_score=experience_earned,
                     is_completed=is_completed,
                     completion_percentage=completion_percentage,
-                    last_activity_at=datetime.fromisoformat(last_activity.replace('Z', '+00:00')) if last_activity else None
+                    last_activity_at=None  # Field doesn't exist in current schema
                 ))
             
             # Calculate overall completion percentage
@@ -399,6 +399,70 @@ class PlanetsService:
             
         except Exception as e:
             logger.error("Error building user overview", user_id=user_id, error=str(e))
+            raise
+    
+    async def _update_planet_progress_after_quiz(self, user_id: str, planet_id: int, score: int):
+        """Manually update planet progress after quiz completion (replaces broken trigger)"""
+        try:
+            # Count total quizzes for this planet
+            total_quizzes_response = self.client.table('quizzes').select('id', count='exact').eq('planet_id', planet_id).execute()
+            total_quizzes = total_quizzes_response.count
+            
+            # Get all quiz IDs for this planet
+            planet_quiz_ids_response = self.client.table('quizzes').select('id').eq('planet_id', planet_id).execute()
+            planet_quiz_ids = [quiz['id'] for quiz in planet_quiz_ids_response.data]
+            
+            # Count completed quizzes based on question attempts since user_quiz_progress tracking is broken
+            completed_quizzes = 0
+            if planet_quiz_ids:
+                for quiz_id in planet_quiz_ids:
+                    # Get total questions for this quiz
+                    quiz_questions_response = self.client.table('questions').select('id', count='exact').eq('quiz_id', quiz_id).execute()
+                    total_questions_for_quiz = quiz_questions_response.count
+                    
+                    if total_questions_for_quiz > 0:
+                        # Get question IDs for this quiz
+                        quiz_question_ids_response = self.client.table('questions').select('id').eq('quiz_id', quiz_id).execute()
+                        quiz_question_ids = [q['id'] for q in quiz_question_ids_response.data]
+                        
+                        if quiz_question_ids:
+                            # Count how many of these specific questions this user has answered
+                            answered_questions_response = self.client.table('user_question_attempts').select('question_id', count='exact').eq('user_id', user_id).in_('question_id', quiz_question_ids).execute()
+                            answered_questions = answered_questions_response.count
+                            
+                            # If user answered all questions for this quiz, consider it completed
+                            if answered_questions >= total_questions_for_quiz:
+                                completed_quizzes += 1
+                                logger.debug("Quiz completed", quiz_id=quiz_id, answered=answered_questions, total=total_questions_for_quiz)
+            
+            # Calculate if planet is completed
+            is_planet_completed = completed_quizzes >= total_quizzes
+            
+            # Update or insert planet progress
+            planet_progress_data = {
+                'user_id': user_id,
+                'planet_id': planet_id,
+                'quizzes_completed': completed_quizzes,
+                'total_quizzes': total_quizzes,
+                'is_completed': is_planet_completed,
+                'updated_at': datetime.utcnow().isoformat()
+            }
+            
+            if is_planet_completed:
+                planet_progress_data['completed_at'] = datetime.utcnow().isoformat()
+            
+            # Try to update existing record, if it doesn't exist, insert new one
+            existing_progress = self.client.table('user_planet_progress').select('*').eq('user_id', user_id).eq('planet_id', planet_id).execute()
+            
+            if existing_progress.data:
+                self.client.table('user_planet_progress').update(planet_progress_data).eq('user_id', user_id).eq('planet_id', planet_id).execute()
+            else:
+                planet_progress_data['is_unlocked'] = True
+                planet_progress_data['unlocked_at'] = datetime.utcnow().isoformat()
+                self.client.table('user_planet_progress').insert(planet_progress_data).execute()
+                
+        except Exception as e:
+            logger.error("Error updating planet progress", user_id=user_id, planet_id=planet_id, error=str(e))
             raise
     
     async def get_quiz_leaderboard(self, quiz_id: int, limit: int = 10) -> List[Dict[str, Any]]:
