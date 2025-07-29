@@ -13,17 +13,17 @@ async def get_daily_rewards_status(
     rewards_service: RewardsService = Depends()
 ) -> Dict[str, Any]:
     """
-    Obtiene el estado actual de las recompensas diarias del usuario
-    - Streak actual y más largo
-    - Recompensas de la semana
-    - Días explorando la galaxia
-    - Si puede reclamar hoy
+    Gets the current status of the user's daily rewards
+    - Current and longest streak
+    - Week rewards
+    - Days exploring the galaxy
+    - If can claim today
     """
     try:
-        # Inicializar perfil si es necesario
+        # Initialize profile if necessary
         await rewards_service.initialize_user_profile(current_user.id)
         
-        # Obtener estado de recompensas
+        # Get rewards status
         status = await rewards_service.get_daily_rewards_status(current_user.id)
         
         return {
@@ -33,7 +33,7 @@ async def get_daily_rewards_status(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo estado de recompensas: {str(e)}"
+            detail=f"Error getting rewards status: {str(e)}"
         )
 
 @router.post("/claim-daily")
@@ -43,16 +43,16 @@ async def claim_daily_reward(
     rewards_service: RewardsService = Depends()
 ) -> Dict[str, Any]:
     """
-    Reclama la recompensa diaria del usuario
-    - Incrementa el streak
-    - Otorga experiencia
-    - Registra la recompensa
+    Claims the user's daily reward
+    - Increments streak
+    - Grants experience
+    - Records the reward
     """
     try:
-        # Inicializar perfil si es necesario
+        # Initialize profile if necessary
         await rewards_service.initialize_user_profile(current_user.id)
         
-        # Reclamar recompensa
+        # Claim reward
         result = await rewards_service.claim_daily_reward(
             current_user.id, 
             request.reward_type
@@ -73,7 +73,7 @@ async def claim_daily_reward(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error reclamando recompensa: {str(e)}"
+            detail=f"Error claiming reward: {str(e)}"
         )
 
 @router.post("/record-activity")
@@ -82,26 +82,26 @@ async def record_galaxy_explorer_activity(
     rewards_service: RewardsService = Depends()
 ) -> Dict[str, Any]:
     """
-    Registra actividad de exploración de galaxia
-    - Llamado cuando el usuario usa la app
-    - Incrementa el streak de galaxy explorer
-    - Solo una vez por día
+    Records galaxy exploration activity
+    - Called when user uses the app
+    - Increments galaxy explorer streak
+    - Only once per day
     """
     try:
-        # Inicializar perfil si es necesario
+        # Initialize profile if necessary
         await rewards_service.initialize_user_profile(current_user.id)
         
-        # Registrar actividad
+        # Record activity
         success = await rewards_service.record_galaxy_explorer_activity(current_user.id)
         
         return {
             "success": success,
-            "message": "Actividad registrada" if success else "Ya registraste actividad hoy"
+            "message": "Activity recorded" if success else "You already recorded activity today"
         }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error registrando actividad: {str(e)}"
+            detail=f"Error recording activity: {str(e)}"
         )
 
 @router.get("/achievements")
@@ -110,16 +110,16 @@ async def get_user_achievements(
     rewards_service: RewardsService = Depends()
 ) -> Dict[str, Any]:
     """
-    Obtiene los logros del usuario relacionados con streaks
-    - Logros de daily streak
-    - Logros de galaxy explorer
-    - Progreso actual
+    Gets the user's achievements related to streaks
+    - Daily streak achievements
+    - Galaxy explorer achievements
+    - Current progress
     """
     try:
-        # Inicializar perfil si es necesario
+        # Initialize profile if necessary
         await rewards_service.initialize_user_profile(current_user.id)
         
-        # Obtener logros
+        # Get achievements
         achievements = await rewards_service.get_user_achievements(current_user.id)
         
         return {
@@ -129,7 +129,7 @@ async def get_user_achievements(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo logros: {str(e)}"
+            detail=f"Error getting achievements: {str(e)}"
         )
 
 @router.get("/streak-info")
@@ -138,16 +138,16 @@ async def get_streak_info(
     rewards_service: RewardsService = Depends()
 ) -> Dict[str, Any]:
     """
-    Obtiene información detallada de los streaks del usuario
-    - Streak actual de login diario
-    - Streak actual de exploración de galaxia
-    - Fechas de última actividad
+    Gets detailed information about the user's streaks
+    - Current daily login streak
+    - Current galaxy exploration streak
+    - Last activity dates
     """
     try:
-        # Inicializar perfil si es necesario
+        # Initialize profile if necessary
         await rewards_service.initialize_user_profile(current_user.id)
         
-        # Obtener estado de recompensas (incluye info de streaks)
+        # Get rewards status (includes streak info)
         status = await rewards_service.get_daily_rewards_status(current_user.id)
         
         return {
@@ -163,7 +163,7 @@ async def get_streak_info(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo información de streaks: {str(e)}"
+            detail=f"Error getting streak information: {str(e)}"
         )
 
 @router.get("/profile")
@@ -172,17 +172,17 @@ async def get_user_profile_with_rewards(
     rewards_service: RewardsService = Depends()
 ) -> Dict[str, Any]:
     """
-    Obtiene el perfil completo del usuario con información de recompensas
-    - Datos del perfil (nivel, experiencia, trades)
-    - Streaks actuales
-    - Logros desbloqueados
-    - Recompensas recientes
+    Gets the complete user profile with reward information
+    - Profile data (level, experience, trades)
+    - Current streaks
+    - Unlocked achievements
+    - Recent rewards
     """
     try:
-        # Inicializar perfil si es necesario
+        # Initialize profile if necessary
         await rewards_service.initialize_user_profile(current_user.id)
         
-        # Obtener perfil completo
+        # Get complete profile
         profile = await rewards_service.get_user_profile_with_rewards(current_user.id)
         
         return {
@@ -192,7 +192,7 @@ async def get_user_profile_with_rewards(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo perfil del usuario: {str(e)}"
+            detail=f"Error getting user profile: {str(e)}"
         ) 
 
 @router.get("/nfts")
@@ -203,9 +203,9 @@ async def get_user_nfts(
     rarity: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Obtiene la colección de NFTs del usuario
-    - Filtros opcionales por tipo y rareza
-    - Ordenados por fecha de adquisición (más recientes primero)
+    Gets the user's NFT collection
+    - Optional filters by type and rarity
+    - Ordered by acquisition date (most recent first)
     """
     try:
         nfts = await rewards_service.get_user_nfts(current_user.id, nft_type, rarity)
@@ -222,7 +222,7 @@ async def get_user_nfts(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo NFTs: {str(e)}"
+            detail=f"Error getting NFTs: {str(e)}"
         )
 
 @router.get("/nfts/{nft_id}")
@@ -232,7 +232,7 @@ async def get_nft_detail(
     rewards_service: RewardsService = Depends()
 ) -> Dict[str, Any]:
     """
-    Obtiene detalles de un NFT específico
+    Gets details of a specific NFT
     """
     try:
         nft = await rewards_service.get_nft_by_id(current_user.id, nft_id)
@@ -240,7 +240,7 @@ async def get_nft_detail(
         if not nft:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="NFT no encontrado"
+                detail="NFT not found"
             )
         
         return {
@@ -252,7 +252,7 @@ async def get_nft_detail(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo NFT: {str(e)}"
+            detail=f"Error getting NFT: {str(e)}"
         )
 
 @router.get("/nfts/stats")
@@ -261,10 +261,10 @@ async def get_nft_stats(
     rewards_service: RewardsService = Depends()
 ) -> Dict[str, Any]:
     """
-    Obtiene estadísticas de la colección de NFTs
-    - Total de NFTs
-    - Distribución por tipo y rareza
-    - NFTs recientes
+    Gets statistics of the NFT collection
+    - Total NFTs
+    - Distribution by type and rarity
+    - Recent NFTs
     """
     try:
         stats = await rewards_service.get_nft_stats(current_user.id)
@@ -276,5 +276,5 @@ async def get_nft_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo estadísticas: {str(e)}"
+            detail=f"Error getting statistics: {str(e)}"
         ) 

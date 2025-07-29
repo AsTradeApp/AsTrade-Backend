@@ -160,7 +160,7 @@ curl -X GET "http://localhost:8000/api/v1/rewards/nfts/stats" \
       "image_url": "https://example.com/nft-cards/card-2.png"
     },
     "new_streak": 2,
-    "message": "¡Recompensa reclamada! +75 experiencia (Nivel 1) + NFT agregado a tu colección"
+    "message": "Reward claimed! +75 experience (Level 1) + NFT added to your collection"
   }
 }
 ```
@@ -170,7 +170,7 @@ curl -X GET "http://localhost:8000/api/v1/rewards/nfts/stats" \
 ```json
 {
   "success": true,
-  "message": "Actividad registrada"
+  "message": "Activity recorded"
 }
 ```
 
@@ -183,15 +183,15 @@ curl -X GET "http://localhost:8000/api/v1/rewards/nfts/stats" \
     "achievements": [
       {
         "id": "week_warrior",
-        "name": "Guerrero Semanal",
-        "description": "Completa 7 días consecutivos de login",
+        "name": "Weekly Warrior",
+        "description": "Complete 7 consecutive login days",
         "unlocked": false,
         "progress": 14
       },
       {
-        "id": "galaxy_master",
-        "name": "Maestro de la Galaxia",
-        "description": "Explora la galaxia por 30 días consecutivos",
+        "id": "master_of_the_galaxy",
+        "name": "Master of the Galaxy",
+        "description": "Explore the galaxy for 30 consecutive days",
         "unlocked": false,
         "progress": 3
       }
@@ -295,8 +295,8 @@ curl -X GET "http://localhost:8000/api/v1/rewards/nfts/stats" \
       "id": "123e4567-e89b-12d3-a456-426614174000",
       "user_id": "fb16ec78-ff70-4895-9ace-92a1d8202fdb",
       "nft_type": "daily_reward",
-      "nft_name": "Carta del Día 2",
-      "nft_description": "Recompensa obtenida por completar 2 días consecutivos",
+      "nft_name": "Daily Card 2",
+      "nft_description": "Reward obtained by completing 2 consecutive days",
       "image_url": "https://example.com/nft-cards/card-2.png",
       "rarity": "common",
       "acquired_date": "2025-07-29",
@@ -327,8 +327,8 @@ curl -X GET "http://localhost:8000/api/v1/rewards/nfts/stats" \
     "id": "123e4567-e89b-12d3-a456-426614174000",
     "user_id": "fb16ec78-ff70-4895-9ace-92a1d8202fdb",
     "nft_type": "daily_reward",
-    "nft_name": "Carta del Día 2",
-    "nft_description": "Recompensa obtenida por completar 2 días consecutivos",
+    "nft_name": "Daily Card 2",
+    "nft_description": "Reward obtained by completing 2 consecutive days",
     "image_url": "https://example.com/nft-cards/card-2.png",
     "rarity": "common",
     "acquired_date": "2025-07-29",
@@ -360,7 +360,7 @@ curl -X GET "http://localhost:8000/api/v1/rewards/nfts/stats" \
     "recent_acquisitions": [
       {
         "id": "123e4567-e89b-12d3-a456-426614174000",
-        "nft_name": "Carta del Día 2",
+        "nft_name": "Daily Card 2",
         "image_url": "https://example.com/nft-cards/card-2.png",
         "rarity": "common",
         "acquired_date": "2025-07-29"
@@ -433,7 +433,7 @@ CREATE TABLE user_nfts (
 - ✅ **Experiencia**: 50 puntos
 - ✅ **Nivel**: 1
 - ✅ **Recompensas reclamadas hoy**: 2 (daily_streak + galaxy_explorer)
-- ✅ **NFTs en colección**: 1 (Carta del Día 2)
+- ✅ **NFTs in collection**: 1 (Daily Card 2)
 
 ---
 

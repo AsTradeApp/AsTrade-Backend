@@ -34,17 +34,32 @@ class RewardsService:
             "description": "Galaxy Explorer Bonus"
         }
 
+    def _safe_json_loads(self, data, default=None):
+        """Safely parse JSON data that might already be a dict or a string"""
+        if data is None:
+            return default if default is not None else {}
+        
+        if isinstance(data, dict):
+            return data
+        elif isinstance(data, str):
+            try:
+                return json.loads(data)
+            except json.JSONDecodeError:
+                return default if default is not None else {}
+        else:
+            return default if default is not None else {}
+
     async def _load_reward_configs(self):
-        """Carga las configuraciones de recompensas desde la base de datos"""
+        """Loads reward configurations from the database"""
         try:
-            # Obtener configuraciones activas de la tabla reward_configs
+            # Get active configurations from reward_configs table
             response = self.supabase.table("reward_configs").select("*").eq("is_active", True).order("day_number").execute()
             
             if response.data:
-                # Convertir los datos de la base de datos al formato esperado
+                # Convert database data to expected format
                 self.default_daily_rewards = []
                 for config in response.data:
-                    # Solo incluir configuraciones con day_number válido (1-7)
+                    # Only include configurations with valid day_number (1-7)
                     day_number = config.get("day_number")
                     if day_number and 1 <= day_number <= 7:
                         reward_data = config.get("reward_data", {})
@@ -55,14 +70,14 @@ class RewardsService:
                             "type": reward_data.get("type", "credits")
                         }
                         
-                        # Agregar image_url si existe
+                        # Add image_url if exists
                         if reward_data.get("image_url"):
                             reward_obj["image_url"] = reward_data.get("image_url")
                         
                         self.default_daily_rewards.append(reward_obj)
                 print(f"✅ Loaded {len(self.default_daily_rewards)} daily reward configs from database")
             else:
-                # Fallback a configuración por defecto si no hay datos
+                # Fallback to default configuration if no data
                 self.default_daily_rewards = [
                     {"day": 1, "amount": 50, "currency": "credits", "type": "credits"},
                     {"day": 2, "amount": 75, "currency": "credits", "type": "credits"},
@@ -76,7 +91,7 @@ class RewardsService:
                 
         except Exception as e:
             print(f"❌ Error loading reward configs: {e}")
-            # Fallback a configuración por defecto
+            # Fallback to default configuration
             self.default_daily_rewards = [
                 {"day": 1, "amount": 50, "currency": "credits", "type": "credits"},
                 {"day": 2, "amount": 75, "currency": "credits", "type": "credits"},
@@ -89,13 +104,13 @@ class RewardsService:
             print("⚠️ Using fallback reward configs due to error")
 
     async def initialize_user_profile(self, user_id: UUID) -> None:
-        """Inicializa el perfil del usuario con datos de streaks si no existe"""
+        """Initializes the user profile with streak data if it doesn't exist"""
         try:
-            # Verificar si ya existe el perfil
+            # Check if profile already exists
             existing = self.supabase.table("astrade_user_profiles").select("*").eq("user_id", str(user_id)).execute()
             
             if not existing.data:
-                # Crear perfil con streaks inicializados
+                # Create profile with initialized streaks
                 profile_data = {
                     "user_id": str(user_id),
                     "level": 1,
@@ -120,7 +135,7 @@ class RewardsService:
                 
                 self.supabase.table("astrade_user_profiles").insert(profile_data).execute()
             else:
-                # Si existe, asegurar que tenga los campos de streaks
+                # If exists, ensure it has streak fields
                 profile = existing.data[0]
                 if "streaks" not in profile or not profile["streaks"]:
                     self.supabase.table("astrade_user_profiles").update({
@@ -143,36 +158,36 @@ class RewardsService:
             print(f"Error initializing user profile: {e}")
 
     async def get_daily_rewards_status(self, user_id: UUID) -> DailyRewardResponse:
-        """Obtiene el estado actual de las recompensas diarias del usuario"""
+        """Gets the current status of the user's daily rewards"""
         try:
             today = date.today()
             
-            # Cargar configuraciones de recompensas
+            # Load reward configurations
             await self._load_reward_configs()
             
-            # Inicializar perfil si es necesario
+            # Initialize profile if necessary
             await self.initialize_user_profile(user_id)
             
-            # Obtener perfil del usuario
+            # Get user profile
             profile_result = self.supabase.table("astrade_user_profiles").select("*").eq("user_id", str(user_id)).execute()
             profile = profile_result.data[0] if profile_result.data else {}
             
-            # Obtener streaks del perfil
-            streaks = json.loads(profile.get("streaks", "{}"))
+            # Get streaks from profile
+            streaks = self._safe_json_loads(profile.get("streaks"), {})
             daily_streak = streaks.get("daily_login", {"current_streak": 0, "longest_streak": 0})
             galaxy_streak = streaks.get("galaxy_explorer", {"current_streak": 0, "longest_streak": 0})
             
-            # Obtener recompensas reclamadas hoy
-            claimed_rewards = json.loads(profile.get("daily_rewards_claimed", "[]"))
+            # Get rewards claimed today
+            claimed_rewards = self._safe_json_loads(profile.get("daily_rewards_claimed"), [])
             claimed_today = any(reward.get("date") == str(today) for reward in claimed_rewards)
             
-            # Calcular tiempo hasta próxima recompensa
+            # Calculate time until next reward
             next_reward_time = None
             if claimed_today:
                 tomorrow = today + timedelta(days=1)
                 next_reward_time = f"{(tomorrow - today).days}d"
             
-            # Construir semana de recompensas
+            # Build week rewards
             week_rewards = []
             current_streak = daily_streak["current_streak"]
             
@@ -210,22 +225,22 @@ class RewardsService:
             )
 
     async def claim_daily_reward(self, user_id: UUID, reward_type: str = "daily_streak") -> ClaimRewardResponse:
-        """Reclama la recompensa diaria del usuario"""
+        """Claims the user's daily reward"""
         try:
             today = date.today()
             
-            # Cargar configuraciones de recompensas
+            # Load reward configurations
             await self._load_reward_configs()
             
-            # Inicializar perfil si es necesario
+            # Initialize profile if necessary
             await self.initialize_user_profile(user_id)
             
-            # Obtener perfil actual
+            # Get current profile
             profile_result = self.supabase.table("astrade_user_profiles").select("*").eq("user_id", str(user_id)).execute()
             profile = profile_result.data[0]
             
-            # Verificar si ya reclamó hoy
-            claimed_rewards = json.loads(profile.get("daily_rewards_claimed", "[]"))
+            # Check if already claimed today
+            claimed_rewards = self._safe_json_loads(profile.get("daily_rewards_claimed"), [])
             claimed_today = any(reward.get("date") == str(today) and reward.get("type") == reward_type for reward in claimed_rewards)
             
             if claimed_today:
@@ -233,20 +248,20 @@ class RewardsService:
                     success=False,
                     reward_data={},
                     new_streak=0,
-                    message="Ya reclamaste la recompensa de hoy"
+                    message="You have already claimed your daily reward"
                 )
             
-            # Obtener streaks actuales
-            streaks = json.loads(profile.get("streaks", "{}"))
+            # Get current streaks
+            streaks = self._safe_json_loads(profile.get("streaks"), {})
             daily_streak = streaks.get("daily_login", {"current_streak": 0, "longest_streak": 0})
             
-            # Determinar recompensa
+            # Determine reward
             if reward_type == "daily_streak":
                 day_number = min(daily_streak["current_streak"] + 1, 7)
                 reward_config = self.default_daily_rewards[day_number - 1]
                 new_streak = daily_streak["current_streak"] + 1
                 
-                # Actualizar streak de daily login
+                # Update daily login streak
                 streaks["daily_login"] = {
                     "current_streak": new_streak,
                     "longest_streak": max(daily_streak["longest_streak"], new_streak),
@@ -256,7 +271,7 @@ class RewardsService:
                 reward_config = self.galaxy_explorer_reward
                 new_streak = daily_streak["current_streak"] + 1
             
-            # Agregar recompensa reclamada
+            # Add claimed reward
             claimed_rewards.append({
                 "date": str(today),
                 "type": reward_type,
@@ -264,14 +279,14 @@ class RewardsService:
                 "streak_count": new_streak
             })
             
-            # Si es una recompensa de imagen (días 2, 4, 6), agregar NFT
+            # If it's an image reward (days 2, 4, 6), add NFT
             if reward_type == "daily_streak" and day_number in [2, 4, 6]:
                 image_url = reward_config.get("image_url")
                 if image_url:
                     nft_data = {
                         "nft_type": "daily_reward",
-                        "nft_name": f"Carta del Día {day_number}",
-                        "nft_description": f"Recompensa obtenida por completar {day_number} días consecutivos",
+                        "nft_name": f"Daily Card {day_number}",
+                        "nft_description": f"Reward obtained by completing {day_number} consecutive days",
                         "image_url": image_url,
                         "rarity": "rare" if day_number == 6 else "common",
                         "acquired_from": f"daily_reward_day_{day_number}",
@@ -283,14 +298,14 @@ class RewardsService:
                     }
                     await self.add_user_nft(user_id, nft_data)
             
-            # Calcular nueva experiencia
+            # Calculate new experience
             experience_gained = reward_config.get("amount", 0)
             new_experience = profile.get("experience", 0) + experience_gained
             
-            # Calcular nuevo nivel (cada 1000 experiencia = 1 nivel)
+            # Calculate new level (every 1000 experience = 1 level)
             new_level = (new_experience // 1000) + 1
             
-            # Actualizar perfil
+            # Update profile
             self.supabase.table("astrade_user_profiles").update({
                 "experience": new_experience,
                 "level": new_level,
@@ -303,7 +318,7 @@ class RewardsService:
                 success=True,
                 reward_data=reward_config,
                 new_streak=new_streak,
-                message=f"¡Recompensa reclamada! +{experience_gained} experiencia (Nivel {new_level})"
+                message=f"Reward claimed! +{experience_gained} experience (Level {new_level})"
             )
             
         except Exception as e:
@@ -312,33 +327,33 @@ class RewardsService:
                 success=False,
                 reward_data={},
                 new_streak=0,
-                message=f"Error al reclamar recompensa: {str(e)}"
+                message=f"Error claiming reward: {str(e)}"
             )
 
     async def record_galaxy_explorer_activity(self, user_id: UUID) -> bool:
-        """Registra actividad de exploración de galaxia (llamado cuando el usuario usa la app)"""
+        """Records galaxy exploration activity (called when user uses the app)"""
         try:
             today = date.today()
             
-            # Inicializar perfil si es necesario
+            # Initialize profile if necessary
             await self.initialize_user_profile(user_id)
             
-            # Obtener perfil actual
+            # Get current profile
             profile_result = self.supabase.table("astrade_user_profiles").select("*").eq("user_id", str(user_id)).execute()
             profile = profile_result.data[0]
             
-            # Verificar si ya registró actividad hoy
-            claimed_rewards = json.loads(profile.get("daily_rewards_claimed", "[]"))
+            # Check if already recorded activity today
+            claimed_rewards = self._safe_json_loads(profile.get("daily_rewards_claimed"), [])
             claimed_today = any(reward.get("date") == str(today) and reward.get("type") == "galaxy_explorer" for reward in claimed_rewards)
             
             if claimed_today:
-                return True  # Ya registró actividad hoy
+                return True  # Already recorded activity today
             
-            # Obtener streaks actuales
-            streaks = json.loads(profile.get("streaks", "{}"))
+            # Get current streaks
+            streaks = self._safe_json_loads(profile.get("streaks"), {})
             galaxy_streak = streaks.get("galaxy_explorer", {"current_streak": 0, "longest_streak": 0})
             
-            # Verificar si es día consecutivo
+            # Check if it's consecutive day
             last_activity = galaxy_streak.get("last_activity_date")
             is_consecutive = True
             
@@ -346,10 +361,10 @@ class RewardsService:
                 last_date = datetime.strptime(last_activity, "%Y-%m-%d").date()
                 is_consecutive = (today - last_date).days == 1
             
-            # Calcular nuevo streak
+            # Calculate new streak
             new_streak = galaxy_streak["current_streak"] + 1 if is_consecutive else 1
             
-            # Agregar recompensa de actividad
+            # Add activity reward
             claimed_rewards.append({
                 "date": str(today),
                 "type": "galaxy_explorer",
@@ -357,14 +372,14 @@ class RewardsService:
                 "streak_count": new_streak
             })
             
-            # Actualizar streak de galaxy explorer
+            # Update galaxy explorer streak
             streaks["galaxy_explorer"] = {
                 "current_streak": new_streak,
                 "longest_streak": max(galaxy_streak["longest_streak"], new_streak),
                 "last_activity_date": str(today)
             }
             
-            # Actualizar perfil
+            # Update profile
             self.supabase.table("astrade_user_profiles").update({
                 "streaks": json.dumps(streaks),
                 "daily_rewards_claimed": json.dumps(claimed_rewards),
@@ -378,30 +393,30 @@ class RewardsService:
             return False
 
     async def get_user_achievements(self, user_id: UUID) -> Dict[str, Any]:
-        """Obtiene los logros del usuario relacionados con streaks"""
+        """Gets the user's achievements related to streaks"""
         try:
-            # Inicializar perfil si es necesario
+            # Initialize profile if necessary
             await self.initialize_user_profile(user_id)
             
-            # Obtener perfil del usuario
+            # Get user profile
             profile_result = self.supabase.table("astrade_user_profiles").select("*").eq("user_id", str(user_id)).execute()
             profile = profile_result.data[0] if profile_result.data else {}
             
-            # Obtener streaks del perfil
-            streaks = json.loads(profile.get("streaks", "{}"))
+            # Get streaks from profile
+            streaks = self._safe_json_loads(profile.get("streaks"), {})
             daily_streak = streaks.get("daily_login", {"current_streak": 0, "longest_streak": 0})
             galaxy_streak = streaks.get("galaxy_explorer", {"current_streak": 0, "longest_streak": 0})
             
-            # Obtener logros existentes
-            existing_achievements = json.loads(profile.get("achievements", "[]"))
+            # Get existing achievements
+            existing_achievements = self._safe_json_loads(profile.get("achievements"), [])
             achievements = []
             
-            # Logros de daily streak
+            # Daily streak achievements
             if daily_streak["longest_streak"] >= 7:
                 achievements.append({
                     "id": "week_warrior",
-                    "name": "Guerrero Semanal",
-                    "description": "Completa 7 días consecutivos de login",
+                    "name": "Weekly Warrior",
+                    "description": "Complete 7 consecutive login days",
                     "unlocked": True,
                     "progress": 100,
                     "unlocked_at": datetime.now().isoformat()
@@ -409,18 +424,18 @@ class RewardsService:
             elif daily_streak["current_streak"] > 0:
                 achievements.append({
                     "id": "week_warrior",
-                    "name": "Guerrero Semanal",
-                    "description": "Completa 7 días consecutivos de login",
+                    "name": "Weekly Warrior",
+                    "description": "Complete 7 consecutive login days",
                     "unlocked": False,
                     "progress": int((daily_streak["current_streak"] / 7) * 100)
                 })
             
-            # Logros de galaxy explorer
+            # Galaxy explorer achievements
             if galaxy_streak["longest_streak"] >= 30:
                 achievements.append({
                     "id": "galaxy_master",
-                    "name": "Maestro de la Galaxia",
-                    "description": "Explora la galaxia por 30 días consecutivos",
+                    "name": "Master of the Galaxy",
+                    "description": "Explore the galaxy for 30 consecutive days",
                     "unlocked": True,
                     "progress": 100,
                     "unlocked_at": datetime.now().isoformat()
@@ -428,13 +443,13 @@ class RewardsService:
             elif galaxy_streak["current_streak"] > 0:
                 achievements.append({
                     "id": "galaxy_master",
-                    "name": "Maestro de la Galaxia",
-                    "description": "Explora la galaxia por 30 días consecutivos",
+                    "name": "Master of the Galaxy",
+                    "description": "Explore the galaxy for 30 consecutive days",
                     "unlocked": False,
                     "progress": int((galaxy_streak["current_streak"] / 30) * 100)
                 })
             
-            # Actualizar logros en el perfil si hay nuevos
+            # Update achievements in profile if there are new ones
             if len(achievements) > len(existing_achievements):
                 self.supabase.table("astrade_user_profiles").update({
                     "achievements": json.dumps(achievements),
@@ -455,26 +470,22 @@ class RewardsService:
             return {"achievements": [], "daily_streak": {}, "galaxy_streak": {}}
 
     async def get_user_profile_with_rewards(self, user_id: UUID) -> Dict[str, Any]:
-        """Obtiene el perfil completo del usuario con información de recompensas"""
+        """Gets the complete user profile with reward information"""
         try:
-            # Inicializar perfil si es necesario
+            # Initialize profile if necessary
             await self.initialize_user_profile(user_id)
             
-            # Obtener perfil del usuario
+            # Get user profile
             profile_result = self.supabase.table("astrade_user_profiles").select("*").eq("user_id", str(user_id)).execute()
             profile = profile_result.data[0] if profile_result.data else {}
             
-            # Obtener streaks del perfil
-            streaks = profile.get("streaks", {})
-            if isinstance(streaks, str):
-                streaks = json.loads(streaks)
+            # Get streaks from profile
+            streaks = self._safe_json_loads(profile.get("streaks"), {})
             daily_streak = streaks.get("daily_login", {"current_streak": 0, "longest_streak": 0})
             galaxy_streak = streaks.get("galaxy_explorer", {"current_streak": 0, "longest_streak": 0})
             
-            # Obtener recompensas reclamadas recientes
-            claimed_rewards = profile.get("daily_rewards_claimed", [])
-            if isinstance(claimed_rewards, str):
-                claimed_rewards = json.loads(claimed_rewards)
+            # Get recently claimed rewards
+            claimed_rewards = self._safe_json_loads(profile.get("daily_rewards_claimed"), [])
             recent_rewards = claimed_rewards[-10:] if len(claimed_rewards) > 10 else claimed_rewards
             
             return {
@@ -485,7 +496,7 @@ class RewardsService:
                 "experience": profile.get("experience", 0),
                 "total_trades": profile.get("total_trades", 0),
                 "total_pnl": profile.get("total_pnl", 0),
-                "achievements": profile.get("achievements", []) if not isinstance(profile.get("achievements", []), str) else json.loads(profile.get("achievements", "[]")),
+                "achievements": self._safe_json_loads(profile.get("achievements"), []),
                 "streaks": {
                     "daily_login": daily_streak,
                     "galaxy_explorer": galaxy_streak
@@ -497,10 +508,10 @@ class RewardsService:
             
         except Exception as e:
             print(f"Error getting user profile with rewards: {e}")
-            return {} 
+            return {}
 
     async def add_user_nft(self, user_id: UUID, nft_data: Dict[str, Any]) -> bool:
-        """Agrega un NFT a la colección del usuario"""
+        """Adds an NFT to the user's collection"""
         try:
             nft_record = {
                 "user_id": str(user_id),
@@ -522,7 +533,7 @@ class RewardsService:
             return False
 
     async def get_user_nfts(self, user_id: UUID, nft_type: Optional[str] = None, rarity: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Obtiene la colección de NFTs del usuario"""
+        """Gets the user's NFT collection"""
         try:
             query = self.supabase.table("user_nfts").select("*").eq("user_id", str(user_id))
             
@@ -535,10 +546,9 @@ class RewardsService:
             response = query.order("acquired_date", desc=True).execute()
             
             if response.data:
-                # Parsear metadata JSONB
+                # Parse metadata JSONB
                 for nft in response.data:
-                    if isinstance(nft.get("metadata"), str):
-                        nft["metadata"] = json.loads(nft["metadata"])
+                    nft["metadata"] = self._safe_json_loads(nft.get("metadata"), {})
             
             return response.data or []
             
@@ -547,14 +557,13 @@ class RewardsService:
             return []
 
     async def get_nft_by_id(self, user_id: UUID, nft_id: UUID) -> Optional[Dict[str, Any]]:
-        """Obtiene un NFT específico del usuario"""
+        """Gets a specific NFT from the user"""
         try:
             response = self.supabase.table("user_nfts").select("*").eq("user_id", str(user_id)).eq("id", str(nft_id)).single().execute()
             
             if response.data:
                 nft = response.data
-                if isinstance(nft.get("metadata"), str):
-                    nft["metadata"] = json.loads(nft["metadata"])
+                nft["metadata"] = self._safe_json_loads(nft.get("metadata"), {})
                 return nft
             
             return None
@@ -564,7 +573,7 @@ class RewardsService:
             return None
 
     async def get_nft_stats(self, user_id: UUID) -> Dict[str, Any]:
-        """Obtiene estadísticas de la colección de NFTs del usuario"""
+        """Gets statistics of the user's NFT collection"""
         try:
             nfts = await self.get_user_nfts(user_id)
             
@@ -576,15 +585,15 @@ class RewardsService:
             }
             
             for nft in nfts:
-                # Contar por tipo
+                # Count by type
                 nft_type = nft.get("nft_type", "unknown")
                 stats["by_type"][nft_type] = stats["by_type"].get(nft_type, 0) + 1
                 
-                # Contar por rareza
+                # Count by rarity
                 rarity = nft.get("rarity", "common")
                 stats["by_rarity"][rarity] = stats["by_rarity"].get(rarity, 0) + 1
             
-            # NFTs recientes (últimos 5)
+            # Recent NFTs (last 5)
             stats["recent_acquisitions"] = sorted(nfts, key=lambda x: x.get("acquired_date", ""), reverse=True)[:5]
             
             return stats

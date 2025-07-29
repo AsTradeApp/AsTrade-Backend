@@ -2,13 +2,13 @@
 
 ## 📋 **RESUMEN DEL SISTEMA**
 
-AsTrade incluye un sistema completo de recompensas diarias estilo Marvel Snap con **integración perfecta** con la tabla `astrade_user_profiles` existente:
+AsTrade includes a complete daily rewards system similar to Marvel Snap with **perfect integration** with the existing `astrade_user_profiles` table:
 
-1. **🎯 Recompensas Diarias**: Streak de 7 días con recompensas progresivas
-2. **🌌 Explorador de Galaxia**: Sistema estilo Duolingo para uso diario de la app
-3. **🏆 Logros**: Sistema de logros basado en streaks
-4. **📊 Tracking**: Seguimiento completo de actividad y progreso
-5. **🔄 Integración**: Aprovecha los campos existentes de `astrade_user_profiles`
+1. **🎯 Recompensas Diarias**: Streak of 7 days with progressive rewards
+2. **🌌 Explorador de Galaxia**: System similar to Duolingo for daily app usage
+3. **🏆 Logros**: System based on streaks
+4. **📊 Tracking**: Complete tracking of activity and progress
+5. **🔄 Integración**: Leverage existing fields of `astrade_user_profiles`
 
 ---
 
@@ -68,7 +68,7 @@ AsTrade incluye un sistema completo de recompensas diarias estilo Marvel Snap co
 GET /api/v1/rewards/daily-status
 ```
 
-**Descripción**: Obtiene el estado completo de las recompensas diarias del usuario
+**Description**: Gets the complete status of the user's daily rewards
 
 **Headers requeridos**:
 ```
@@ -137,7 +137,7 @@ Authorization: Bearer <token>
 POST /api/v1/rewards/claim-daily
 ```
 
-**Descripción**: Reclama la recompensa diaria del usuario y actualiza experiencia/nivel
+**Description**: Claims the user's daily reward and updates experience/level
 
 **Headers requeridos**:
 ```
@@ -169,7 +169,7 @@ Content-Type: application/json
       "description": "Día 3 - NFT Misterioso"
     },
     "new_streak": 3,
-    "message": "¡Recompensa reclamada! +100 experiencia (Nivel 2)"
+    "message": "Reward claimed! +100 experience (Level 2)"
   }
 }
 ```
@@ -177,7 +177,7 @@ Content-Type: application/json
 **Respuesta de error** (400):
 ```json
 {
-  "detail": "Ya reclamaste la recompensa de hoy"
+  "detail": "You have already claimed your daily reward"
 }
 ```
 
@@ -188,7 +188,7 @@ Content-Type: application/json
 POST /api/v1/rewards/record-activity
 ```
 
-**Descripción**: Registra actividad de exploración de galaxia (llamado cuando el usuario usa la app)
+**Description**: Records galaxy exploration activity (called when user uses the app)
 
 **Headers requeridos**:
 ```
@@ -199,7 +199,7 @@ Authorization: Bearer <token>
 ```json
 {
   "success": true,
-  "message": "Actividad registrada"
+  "message": "Activity recorded"
 }
 ```
 
@@ -207,7 +207,7 @@ Authorization: Bearer <token>
 ```json
 {
   "success": false,
-  "message": "Ya registraste actividad hoy"
+  "message": "You already recorded activity today"
 }
 ```
 
@@ -218,7 +218,7 @@ Authorization: Bearer <token>
 GET /api/v1/rewards/achievements
 ```
 
-**Descripción**: Obtiene los logros del usuario relacionados con streaks
+**Description**: Gets the user's achievements related to streaks
 
 **Headers requeridos**:
 ```
@@ -233,15 +233,15 @@ Authorization: Bearer <token>
     "achievements": [
       {
         "id": "week_warrior",
-        "name": "Guerrero Semanal",
-        "description": "Completa 7 días consecutivos de login",
+        "name": "Weekly Warrior",
+        "description": "Complete 7 consecutive login days",
         "unlocked": false,
         "progress": 42
       },
       {
         "id": "galaxy_master",
-        "name": "Maestro de la Galaxia",
-        "description": "Explora la galaxia por 30 días consecutivos",
+        "name": "Master of the Galaxy",
+        "description": "Explore the galaxy for 30 consecutive days",
         "unlocked": false,
         "progress": 50
       }
@@ -268,7 +268,7 @@ Authorization: Bearer <token>
 GET /api/v1/rewards/streak-info
 ```
 
-**Descripción**: Obtiene información detallada de los streaks del usuario
+**Description**: Gets detailed streak information for the user
 
 **Headers requeridos**:
 ```
@@ -296,7 +296,7 @@ Authorization: Bearer <token>
 GET /api/v1/rewards/profile
 ```
 
-**Descripción**: Obtiene el perfil completo del usuario con información de recompensas
+**Description**: Gets the complete user profile with reward information
 
 **Headers requeridos**:
 ```
@@ -318,7 +318,7 @@ Authorization: Bearer <token>
     "achievements": [
       {
         "id": "week_warrior",
-        "name": "Guerrero Semanal",
+        "name": "Weekly Warrior",
         "unlocked": false,
         "progress": 42
       }
@@ -425,7 +425,7 @@ const response = await fetch('/api/v1/rewards/record-activity', {
 
 const { success } = await response.json();
 if (success) {
-  // Mostrar notificación de actividad registrada
+  // Show activity recorded notification
   showActivityNotification();
 }
 ```
