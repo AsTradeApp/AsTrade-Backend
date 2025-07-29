@@ -1,12 +1,14 @@
 """Stark trading client service"""
 import asyncio
 from decimal import Decimal
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import structlog
 import os
 import sys
 from pathlib import Path
 import threading
+import aiohttp
+import json
 
 # Load environment variables from .env file
 try:
@@ -255,6 +257,133 @@ class StarkTradingService:
         except Exception as e:
             logger.error("Failed to cancel Stark order", error=str(e), order_id=order_external_id)
             raise StarkTradingClientError(f"Failed to cancel order: {str(e)}")
+    
+    async def get_positions(self, market: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get user positions from Stark API
+        
+        Args:
+            market: Optional market filter (e.g., "BTC-USD")
+            
+        Returns:
+            List of position data
+            
+        Raises:
+            StarkTradingClientError: If API call fails
+        """
+        try:
+            # Ensure client is initialized
+            if not self.client:
+                await self.initialize_client()
+            
+            if not self.client:
+                raise StarkTradingClientError("Failed to initialize trading client")
+            
+            # Build URL with optional market parameter
+            url = "https://api.starknet.sepolia.extended.exchange/api/v1/user/positions"
+            if market:
+                url += f"?market={market}"
+            
+            headers = {
+                "X-Api-Key": self.api_key,
+                "Content-Type": "application/json"
+            }
+            
+            logger.info("Fetching positions from Stark API", url=url, market=market, market_type=type(market))
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error("Stark API error", status=response.status, error=error_text)
+                        raise StarkTradingClientError(f"API error {response.status}: {error_text}")
+                    
+                    data = await response.json()
+                    
+                    if data.get("status") != "OK":
+                        logger.error("Stark API returned error status", data=data)
+                        raise StarkTradingClientError(f"API returned error: {data}")
+                    
+                    positions = data.get("data", [])
+                    logger.info("Successfully fetched positions", count=len(positions))
+                    
+                    return positions
+                    
+        except aiohttp.ClientError as e:
+            logger.error("Network error fetching positions", error=str(e))
+            raise StarkTradingClientError(f"Network error: {str(e)}")
+        except Exception as e:
+            logger.error("Failed to fetch positions", error=str(e))
+            raise StarkTradingClientError(f"Failed to fetch positions: {str(e)}")
+    
+    async def get_orders(self, market: Optional[str] = None, order_type: Optional[str] = None, side: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get user orders from Stark API
+        
+        Args:
+            market: Optional market filter (e.g., "BTC-USD")
+            type: Optional order type filter (e.g., "LIMIT", "CONDITIONAL", "TPSL")
+            side: Optional order side filter (e.g., "BUY", "SELL")
+            
+        Returns:
+            List of order data
+            
+        Raises:
+            StarkTradingClientError: If API call fails
+        """
+        try:
+            # Ensure client is initialized
+            if not self.client:
+                await self.initialize_client()
+            
+            if not self.client:
+                raise StarkTradingClientError("Failed to initialize trading client")
+            
+            # Build URL with optional parameters
+            url = "https://api.starknet.sepolia.extended.exchange/api/v1/user/orders"
+            params = []
+            
+            if market:
+                params.append(f"market={market}")
+            if order_type:
+                params.append(f"type={order_type}")
+            if side:
+                params.append(f"side={side}")
+            
+            if params:
+                url += "?" + "&".join(params)
+            
+            headers = {
+                "X-Api-Key": self.api_key,
+                "Content-Type": "application/json"
+            }
+            
+            logger.info("Fetching orders from Stark API", url=url, market=market, market_type=type(market), order_type=order_type)
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error("Stark API error", status=response.status, error=error_text)
+                        raise StarkTradingClientError(f"API error {response.status}: {error_text}")
+                    
+                    data = await response.json()
+                    
+                    if data.get("status") != "OK":
+                        logger.error("Stark API returned error status", data=data)
+                        raise StarkTradingClientError(f"API returned error: {data}")
+                    
+                    orders = data.get("data", [])
+                    logger.info("Successfully fetched orders", count=len(orders))
+                    
+                    return orders
+                    
+        except aiohttp.ClientError as e:
+            logger.error("Network error fetching orders", error=str(e))
+            raise StarkTradingClientError(f"Network error: {str(e)}")
+        except Exception as e:
+            logger.error("Failed to fetch orders", error=str(e))
+            raise StarkTradingClientError(f"Failed to fetch orders: {str(e)}")
     
     async def get_account_info(self) -> Dict[str, Any]:
         """

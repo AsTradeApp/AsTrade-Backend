@@ -1,5 +1,6 @@
 """Stark trading endpoints"""
-from fastapi import APIRouter, WebSocket
+from fastapi import APIRouter, WebSocket, Query
+from typing import Optional, List
 import structlog
 
 from app.models.responses import SuccessResponse
@@ -8,13 +9,17 @@ from app.api.v1.stark.models import (
     StarkOrderCancelRequest,
     StarkOrderResponse,
     StarkOrderCancelResponse,
-    StarkAccountInfoResponse
+    StarkAccountInfoResponse,
+    StarkPositionResponse,
+    StarkOrderDetailResponse
 )
 from app.api.v1.stark.service import (
     create_stark_order,
     cancel_stark_order,
     get_stark_account_info,
-    initialize_stark_client
+    initialize_stark_client,
+    get_stark_positions,
+    get_stark_orders
 )
 from app.services.price_streaming_service import (
     price_streaming_service,
@@ -93,6 +98,114 @@ async def cancel_order_post(
     """
     result = await cancel_stark_order(cancel_request)
     return SuccessResponse(data=result.dict())
+
+
+@router.get("/positions", response_model=SuccessResponse, summary="Get user positions")
+async def get_positions(
+    market: Optional[str] = Query(None, description="Market filter (e.g., BTC-USD)")
+):
+    logger.info("Positions endpoint called", market=market)
+    """
+    Get user positions from Stark perpetual trading.
+    
+    Args:
+        market: Optional market filter to get positions for a specific market
+    
+    Returns:
+        List of user positions with detailed information
+    
+    This endpoint retrieves all open positions for the user account.
+    Each position includes information about size, leverage, PnL, and risk management settings.
+    
+    Example response:
+    ```json
+    {
+        "status": "success",
+        "data": [
+            {
+                "id": 1,
+                "accountId": 1,
+                "market": "BTC-USD",
+                "side": "LONG",
+                "leverage": "10",
+                "size": "0.1",
+                "value": "4000",
+                "openPrice": "39000",
+                "markPrice": "40000",
+                "liquidationPrice": "38200",
+                "margin": "20",
+                "unrealisedPnl": "1000",
+                "realisedPnl": "1.2",
+                "tpTriggerPrice": "41000",
+                "tpLimitPrice": "41500",
+                "slTriggerPrice": "39500",
+                "slLimitPrice": "39000",
+                "adl": "2.5",
+                "maxPositionSize": "0.2",
+                "createdTime": 1701563440000,
+                "updatedTime": 1701563440
+            }
+        ]
+    }
+    ```
+    """
+    positions = await get_stark_positions(market=market)
+    return SuccessResponse(data=[position.dict() for position in positions])
+
+
+@router.get("/orders", response_model=SuccessResponse, summary="Get user orders")
+async def get_orders(
+    market: Optional[str] = Query(None, description="Market filter (e.g., BTC-USD)"),
+    type: Optional[str] = Query(None, description="Order type filter (LIMIT, CONDITIONAL, TPSL)"),
+    side: Optional[str] = Query(None, description="Order side filter (BUY, SELL)")
+):
+    logger.info("Orders endpoint called", market=market, order_type=type, side=side)
+    """
+    Get user orders from Stark perpetual trading.
+    
+    Args:
+        market: Optional market filter to get orders for a specific market
+        type: Optional order type filter
+        side: Optional order side filter
+    
+    Returns:
+        List of user orders with detailed information
+    
+    This endpoint retrieves all orders for the user account, including open, filled, and cancelled orders.
+    Each order includes information about status, quantity, price, and execution details.
+    
+    Example response:
+    ```json
+    {
+        "status": "success",
+        "data": [
+            {
+                "id": 1775511783722512384,
+                "accountId": 3017,
+                "externalId": "2554612759479898620327573136214120486511160383028978112799136270841501275076",
+                "market": "ETH-USD",
+                "type": "LIMIT",
+                "side": "BUY",
+                "status": "PARTIALLY_FILLED",
+                "statusReason": null,
+                "price": "3300",
+                "averagePrice": "3297.00",
+                "qty": "0.2",
+                "filledQty": "0.1",
+                "payedFee": "0.0120000000000000",
+                "reduceOnly": false,
+                "postOnly": false,
+                "createdTime": 1701563440000,
+                "updatedTime": 1701563440000,
+                "timeInForce": "FOK",
+                "expireTime": 1712754771819
+            }
+        ]
+    }
+    ```
+    """
+    orders = await get_stark_orders(market=market, order_type=type, side=side)
+    return SuccessResponse(data=[order.dict() for order in orders])
 
 
 @router.get("/account", response_model=SuccessResponse, summary="Get Stark account info")

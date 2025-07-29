@@ -1,5 +1,5 @@
 """Stark trading service layer"""
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 import structlog
 from fastapi import HTTPException
 
@@ -9,7 +9,9 @@ from app.api.v1.stark.models import (
     StarkOrderCancelRequest,
     StarkOrderResponse,
     StarkOrderCancelResponse,
-    StarkAccountInfoResponse
+    StarkAccountInfoResponse,
+    StarkPositionResponse,
+    StarkOrderDetailResponse
 )
 
 logger = structlog.get_logger()
@@ -90,6 +92,96 @@ async def cancel_stark_order(cancel_request: StarkOrderCancelRequest) -> StarkOr
         raise HTTPException(status_code=400, detail=f"Trading error: {str(e)}")
     except Exception as e:
         logger.error("Unexpected error cancelling Stark order", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+async def get_stark_positions(market: Optional[str] = None) -> List[StarkPositionResponse]:
+    """
+    Get user positions from Stark API.
+    
+    Args:
+        market: Optional market filter
+        
+    Returns:
+        List of position information
+        
+    Raises:
+        HTTPException: If getting positions fails
+    """
+    try:
+        logger.info("Getting Stark positions", market=market, market_type=type(market))
+        
+        # Call the trading service
+        positions_data = await stark_trading_service.get_positions(market=market)
+        
+        # Convert to response models
+        positions = []
+        for position_data in positions_data:
+            try:
+                position = StarkPositionResponse(**position_data)
+                positions.append(position)
+            except Exception as e:
+                logger.warning("Failed to parse position data", error=str(e), data=position_data)
+                continue
+        
+        logger.info("Successfully retrieved positions", count=len(positions))
+        return positions
+        
+    except StarkTradingClientError as e:
+        logger.error("Stark trading client error", error=str(e))
+        raise HTTPException(status_code=400, detail=f"Trading error: {str(e)}")
+    except Exception as e:
+        logger.error("Unexpected error getting Stark positions", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+async def get_stark_orders(
+    market: Optional[str] = None, 
+    order_type: Optional[str] = None, 
+    side: Optional[str] = None
+) -> List[StarkOrderDetailResponse]:
+    """
+    Get user orders from Stark API.
+    
+    Args:
+        market: Optional market filter
+        type: Optional order type filter
+        side: Optional order side filter
+        
+    Returns:
+        List of order information
+        
+    Raises:
+        HTTPException: If getting orders fails
+    """
+    try:
+        logger.info("Getting Stark orders", market=market, market_type=type(market), order_type=order_type, side=side)
+        
+        # Call the trading service
+        orders_data = await stark_trading_service.get_orders(
+            market=market, 
+            order_type=order_type, 
+            side=side
+        )
+        
+        # Convert to response models
+        orders = []
+        for order_data in orders_data:
+            try:
+                order = StarkOrderDetailResponse(**order_data)
+                orders.append(order)
+            except Exception as e:
+                logger.warning("Failed to parse order data", error=str(e), data=order_data)
+                continue
+        
+        logger.info("Successfully retrieved orders", count=len(orders))
+        return orders
+        
+    except StarkTradingClientError as e:
+        logger.error("Stark trading client error", error=str(e))
+        raise HTTPException(status_code=400, detail=f"Trading error: {str(e)}")
+    except Exception as e:
+        logger.error("Unexpected error getting Stark orders", error=str(e))
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
